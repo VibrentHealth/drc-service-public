@@ -1,0 +1,56 @@
+---
+spring:
+  kafka:
+    defaultConcurrency: 1
+    server: ${KAFKA_HOST:localhost:9092}
+    enabled: ${KAFKA_ENABLED:true}
+    autoStartUp: true
+    topics:
+      eventDRCNotificationRequest: event.vxp.push.participant
+      externalApiRequestLogs: event.vrp.externalApiRequestLogs
+      vxpResponse: event.vxp.workflow.outbound
+      pushParticipant: event.vxp.push.participant
+  datasource:
+    dataSourceClassName: org.h2.jdbcx.JdbcDataSource
+    url: jdbc:h2:mem:ehr;DB_CLOSE_DELAY=-1;
+    username:
+    password:
+  jpa:
+    database: H2
+    openInView: false
+    show_sql: true
+    generate-ddl: false
+
+vibrent.oidc-auth.keycloak:
+  baseAuthUrl: ${KEYCLOAK_BASEURL:https://keycloak-dev.vibrenthealth.com/auth}
+  resourceId: ${KEYCLOAK_RESOURCEID:participant}
+  participantRealm: ${KEYCLOAK_PARTICIPANT_REALM:participant_realm}
+  enterpriseRealm: ${KEYCLOAK_ENTERPRISE_REALM:default_realm}
+  enabled: ${KEYCLOAK_PARTICIPANT_ENABLED:true}
+  drcInternalClientId: ${DRC_INTERNAL_CLIENT_ID:drc-internal-client}
+  drcInternalClientSecret: ${CLIENT_CREDENTIAL_DRC_INTERNAL_SECRET:some-secret}
+
+vibrent:
+  drc:
+    apiUrl: ${DRC_BASE_URL:https://pmi-drc-api-test.appspot.com/rdr/v2}
+    # Property to control whether this system is connected to DRC when a user is registered, form entry is being saved, form definition is being created/updated/etc
+    postprocess: ${DRC_ENABLED:true}
+    timeout: ${DRC_TIMEOUT:90000}
+    drcCertificateFilePath: ${DRC_CERTIFICATE_FILE_PATH:src/main/resources/opt/data/drc/cert.json}
+    genomics:
+      participantStatus:
+        batchProcessingSize: ${DRC_GENOMIC_BATCH_PROCESSING_SIZE:100}
+        cron: ${DRC_GENOMIC_PARTICIPANT_STATUS:0 0 0/6 ? * * *}
+      participantBatch:
+        cron: ${DRC_GENOMIC_PARTICIPANT_BATCH_PROCESSING:0 0/15 * ? * * *}
+    supplyStatus:
+      enabled: ${SUPPLY_STATUS_ENABLED:true}
+    accountInfoUpdates:
+      enabled: ${ACCOUNT_INFO_UPDATES_ENABLED:false}
+    forms:
+      basics:
+        id: ${BASICS_FORM_ID:284}
+        name: ${BASICS_FORM_NAME:TheBasics}
+  drc-service:
+    acadiaApiUrl: ${API_SERVER:http://localhost:8080}
+    caffeineSpec: ${CAFFEINE_CACHE_SPEC:maximumSize=150000}

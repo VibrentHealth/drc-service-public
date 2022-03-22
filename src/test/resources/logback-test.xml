@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true">
+  <!-- ===================================================== -->
+  <!-- Appenders - Defines where we send the logged messages -->
+
+  <!-- Catalina.out in static environments; streaming console in k8s / docker -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <charset>utf-8</charset>
+      <Pattern>%d [%thread] %highlight(%-5level) %cyan(%logger{25}):%M:%L %msg%n</Pattern>
+    </encoder>
+  </appender>
+
+  <!-- ================================================ -->
+  <!-- Loggers - Defines what levels we log messages at -->
+
+  <!-- Set up WARNING by default - with that we don't need all the lines at level WARN -->
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+
+  <logger name="com.vibrent" level="INFO"/>
+  <logger name="org.springframework" level="WARN"/>
+  <logger name="org.hibernate" level="ERROR"/>
+
+  <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator">
+    <resetJUL>true</resetJUL>
+  </contextListener>
+</configuration>

@@ -1,0 +1,24 @@
+package com.vibrent.drc.enumeration;
+
+public enum ExternalEventType {
+
+    // DRC
+    DRC_GENOMICS_PARTICIPANT_STATUS,
+    DRC_SUPPLY_STATUS,
+    DRC_GENOMICS_RESULT_STATUS,
+    DRC_FORM_ENTRY,
+
+    //Genetek
+    GENOTEK_CREATE_ORDER_RESPONSE_RECEIVED,
+    GENOTEK_STATUS_UPDATE_RESPONSE_RECEIVED,
+
+    //Aftership
+    AFTER_SHIP_TRACKING_RESPONSE_RECEIVED,
+
+    //VXP_PUSH
+    ACCOUNT_INFORMATION_UPDATE_RECEIVED,
+
+    //DRC retrieve user info
+    DRC_RETRIEVE_USER_INFO,
+    DRC_UPDATE_USER
+}

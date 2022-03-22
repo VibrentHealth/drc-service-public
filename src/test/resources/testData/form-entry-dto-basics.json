@@ -1,0 +1,1262 @@
+{
+  "createdOn": 1644909939541,
+  "updatedOn": 1644909940590,
+  "createdById": 87269410,
+  "updatedById": 87269410,
+  "isDeleted": false,
+  "id": 4,
+  "measurementTime": 1644909939245,
+  "entryRecordedTime": 1644909939245,
+  "mode": "MANUAL",
+  "draft": false,
+  "userId": 87269410,
+  "userLogin": "test2@gmail.com",
+  "formVersionId": 25097,
+  "formId": 284,
+  "formName": "TheBasics",
+  "form": {
+    "createdOn": 1644895338285,
+    "updatedOn": 1644895338285,
+    "createdById": 87269409,
+    "updatedById": 87269409,
+    "isDeleted": false,
+    "id": 284,
+    "name": "TheBasics",
+    "displayName": "The Basics",
+    "category": "DATA_FORM",
+    "description": "",
+    "isHidden": false,
+    "isLatestVersionActive": true,
+    "localizationMap": {
+      "es": {
+        "displayName": "Lo Básico"
+      }
+    },
+    "formFields": [
+      {
+        "id": 5689,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5690,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5691,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5693,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5696,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5703,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5704,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5705,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5707,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5708,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5711,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5712,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5722,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5723,
+        "type": "DROPDOWN",
+        "formId": 284
+      },
+      {
+        "id": 5725,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5726,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5728,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5729,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5730,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5732,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5733,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5734,
+        "type": "NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5736,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5737,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5738,
+        "type": "NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5739,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5741,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5742,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5745,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5746,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5747,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5748,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5751,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5752,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5754,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5755,
+        "type": "DROPDOWN",
+        "formId": 284
+      },
+      {
+        "id": 5757,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5758,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5760,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5761,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5762,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5764,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5765,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5766,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5768,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5769,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 5776,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5788,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 5789,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5790,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5791,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5792,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5793,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5796,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 5798,
+        "type": "DROPDOWN",
+        "formId": 284
+      },
+      {
+        "id": 9502,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 9758,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 9761,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 9762,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 9767,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9770,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 9771,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9772,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9773,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9774,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9775,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9776,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9779,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9781,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 9782,
+        "type": "DROPDOWN",
+        "formId": 284
+      },
+      {
+        "id": 9788,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 9795,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9803,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 9804,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9807,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 9808,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9811,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 9812,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9815,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 9816,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9819,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 9820,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9823,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 9824,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9825,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 9836,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 10409,
+        "type": "DROPDOWN",
+        "formId": 284
+      },
+      {
+        "id": 10412,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10413,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10414,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10415,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10445,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 10447,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 10448,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10449,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 10459,
+        "type": "DROPDOWN",
+        "formId": 284
+      },
+      {
+        "id": 10749,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 10787,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 10788,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10794,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 10879,
+        "type": "BOOLEAN_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 10880,
+        "type": "BOOLEAN_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 10881,
+        "type": "BOOLEAN_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 10963,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10965,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10967,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10970,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10972,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10974,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10976,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10978,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10980,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10982,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10985,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10992,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10993,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 10997,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 11007,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 11036,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21169,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 21170,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 21174,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21265,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21266,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21267,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21268,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21269,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21270,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21271,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21272,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21273,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21274,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21278,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21281,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21282,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21283,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21284,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21285,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21286,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21287,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21288,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21289,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21290,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21291,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21292,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21293,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21294,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21295,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21296,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21297,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21298,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21299,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21300,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21301,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21302,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21303,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21304,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 21305,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 33471,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 33472,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 33507,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 33508,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 33509,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 33511,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 33512,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 33513,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 33514,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 34167,
+        "type": "DIVIDER",
+        "formId": 284
+      },
+      {
+        "id": 34168,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 34169,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 34178,
+        "type": "DIVIDER",
+        "formId": 284
+      },
+      {
+        "id": 34179,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 34180,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 34752,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 34779,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 34803,
+        "type": "TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 34804,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 34805,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 34806,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 37974,
+        "type": "DROPDOWN",
+        "formId": 284
+      },
+      {
+        "id": 44202,
+        "type": "RICH_TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 44334,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 44335,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 44336,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 44337,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 44338,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 44349,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 44350,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 44351,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 44352,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 44353,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 44354,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 44355,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 44356,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 44357,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 44358,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 44359,
+        "type": "EMBEDDED_TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 44360,
+        "type": "MULTI_SELECTOR",
+        "formId": 284
+      },
+      {
+        "id": 44363,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 44364,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 44365,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 44366,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 44367,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 44368,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 44369,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 44370,
+        "type": "EMBEDDED_TEXT_INPUT",
+        "formId": 284
+      },
+      {
+        "id": 45222,
+        "type": "RICH_TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 50566,
+        "type": "IMAGE_DISPLAY",
+        "formId": 284
+      },
+      {
+        "id": 50567,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 50568,
+        "type": "TEXT_LABEL",
+        "formId": 284
+      },
+      {
+        "id": 59860,
+        "type": "VIEW_TEXT_OR_NUMBER_INPUT",
+        "formId": 284
+      }
+    ],
+    "formIcons": {
+      "UNLOCKED": {
+        "imageUrl": "/icons/form/2020/11/17/TheBasics_77ed48ca-d5e1-4c0a-9e66-1112408be7b3.png",
+        "imageName": "TheBasics.png",
+        "imageSize": 16321,
+        "aspectRatio": 1.2121212121212122
+      },
+      "LOCKED": {
+        "imageUrl": "/icons/form/2020/11/17/TheBasics_77ed48ca-d5e1-4c0a-9e66-1112408be7b3.png",
+        "imageName": "TheBasics.png",
+        "imageSize": 16321,
+        "aspectRatio": 1.2121212121212122
+      },
+      "COMPLETED": {
+        "imageUrl": "/icons/form/2020/11/17/TheBasics_77ed48ca-d5e1-4c0a-9e66-1112408be7b3.png",
+        "imageName": "TheBasics.png",
+        "imageSize": 16321,
+        "aspectRatio": 1.2121212121212122
+      },
+      "PAUSED": {
+        "imageUrl": "/icons/form/2020/11/17/TheBasics_77ed48ca-d5e1-4c0a-9e66-1112408be7b3.png",
+        "imageName": "TheBasics.png",
+        "imageSize": 16321,
+        "aspectRatio": 1.2121212121212122
+      }
+    },
+    "surveyIcon": {
+      "icon": {
+        "imageUrl": "/icons/form/2020/11/05/img-basics@3x_fe3ce8b1-3a4b-4bf1-b40b-89202660c03d.png",
+        "imageName": "img-basics@3x.png",
+        "imageSize": 35229,
+        "aspectRatio": 1.2048192771084338
+      }
+    },
+    "activeVersionViewModeTemplate": "CUSTOM",
+    "externalTargetMappings": [
+      {
+        "id": 7628,
+        "formId": 284,
+        "externalTarget": "DRC"
+      }
+    ]
+  },
+  "formFieldEntries": [
+    {
+      "@class": "com.vibrent.acadia.web.rest.dto.form.FormFieldEntryDTO",
+      "id": 34,
+      "formEntryId": 4,
+      "formFieldId": 5708,
+      "formFieldEntryValues": [
+        {
+          "id": 34,
+          "valueAsString": "GenderIdentity_Man"
+        }
+      ]
+    },
+    {
+      "@class": "com.vibrent.acadia.web.rest.dto.form.FormFieldEntryDTO",
+      "id": 35,
+      "formEntryId": 4,
+      "formFieldId": 5704,
+      "formFieldEntryValues": [
+        {
+          "id": 35,
+          "valueAsString": "SexAtBirth_Male"
+        }
+      ]
+    }
+  ],
+  "formStateMetaData": {
+    "pageNavigationSequence": [
+      193287,
+      193288,
+      193289,
+      1439,
+      813,
+      5115,
+      4055,
+      3309,
+      3056,
+      1849,
+      8443,
+      193298,
+      193297,
+      193300,
+      193302,
+      193303,
+      193304,
+      193305,
+      193306,
+      193307,
+      193308,
+      193309,
+      21434,
+      11139,
+      1983,
+      9708,
+      7694,
+      3457,
+      2290,
+      193311,
+      193312,
+      193315,
+      193316,
+      193318,
+      193319,
+      193320,
+      193321,
+      193322,
+      193323,
+      193324,
+      193325,
+      193326
+    ],
+    "visibleFieldIds": [
+      5690,
+      5696,
+      5708,
+      5704,
+      5712,
+      5723,
+      5726,
+      5729,
+      5734,
+      5738,
+      9762,
+      44336,
+      44338,
+      44350,
+      44352,
+      44354,
+      44356,
+      5742,
+      5755,
+      5758,
+      5765,
+      5769,
+      10448,
+      10879,
+      5789,
+      9767,
+      5790,
+      5791,
+      5792,
+      5793,
+      10409,
+      10412,
+      5796,
+      10413,
+      5798,
+      10880,
+      9771,
+      9772,
+      9773,
+      9774,
+      9775,
+      9776,
+      10459,
+      10414,
+      9779,
+      10415,
+      9782,
+      10881
+    ],
+    "elementMetaDataMap": {},
+    "fieldValueChangeCountMap": {}
+  },
+  "externalId": "465395576",
+  "viewModeTemplate": "CUSTOM",
+  "autoSave": false
+}

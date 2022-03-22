@@ -1,0 +1,24 @@
+.idea/
+.settings/
+
+root.iml
+*.DS_Store
+*.iml
+*.log
+
+# Ignore java build artifacts
+target/*
+
+
+# Ignore node-generated files
+node_modules
+npm-debug.log.*
+
+# Ignore helm generated files
+*.tgz
+requirements.lock
+
+.classpath
+.factorypath
+.project
+.vscode/
