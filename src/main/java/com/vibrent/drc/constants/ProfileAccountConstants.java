@@ -19,4 +19,5 @@ public class ProfileAccountConstants {
     public static final String FIELD_NAME_VERIFIED_PHONE_NUMBER = "ConsentPII_VerifiedPrimaryPhoneNumber";
     public static final String FIELD_NAME_PHONE = "PIIContactInformation_Phone";
     public static final String FIELD_NAME_DOB = "PIIBirthInformation_BirthDate";
+    public static final String FORM_NAME_BASICS = "TheBasics";
 }

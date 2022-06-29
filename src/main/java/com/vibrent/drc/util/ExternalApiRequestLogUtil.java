@@ -8,7 +8,11 @@ import com.vibrent.drc.enumeration.ExternalServiceType;
 import com.vibrent.vxp.push.AccountInfoUpdateEventDto;
 import com.vibrent.vxp.workflow.*;
 import com.vibrenthealth.drcutils.connector.HttpResponseWrapper;
+import com.vibrenthealth.drcutils.logging.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
 
@@ -21,6 +25,8 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 public class ExternalApiRequestLogUtil {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ExternalApiRequestLogUtil.class);
+
     private static final String DESCRIPTION_MUST_BE_PROVIDED = "Description must be provided";
     private static final String KAFKA_TOPIC = "Kafka topic: ";
     private static final String INPUT_DTO_MUST_BE_PROVIDED = "Input Dto must be provided";
@@ -52,6 +58,7 @@ public class ExternalApiRequestLogUtil {
                 responseString = responseWrapper == null ? "No Response" : responseWrapper.getResponseBody();
             }
             externalApiRequestLog.setResponseBody(responseString);
+            externalApiRequestLog.setExternalId(getIdFromResponse(responseString));
             if (responseWrapper != null) {
                 externalApiRequestLog.setResponseCode(responseWrapper.getStatusCode());
             }
@@ -292,5 +299,19 @@ public class ExternalApiRequestLogUtil {
             }
         }
         return eventType;
+    }
+    public static String getIdFromResponse(String response) {
+        try {
+            JSONObject jsonObj = new JSONObject(response);
+            if(jsonObj.has("id")) {
+                return jsonObj.getString("id");
+            } else{
+                log.info("drc-service: External id not found");
+                return null;
+            }
+        } catch (Exception e) {
+            ErrorCode.DRC_RESPONSE_VALUE.log(LOGGER, "id", org.apache.commons.lang3.StringUtils.truncate(response, 100), e);
+            return null;
+        }
     }
 }

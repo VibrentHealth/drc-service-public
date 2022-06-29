@@ -64,9 +64,7 @@ public class AccountInfoUpdateEventHelperServiceImpl implements AccountInfoUpdat
                 !CollectionUtils.isEmpty(accountInfoUpdateEventDto.getParticipant().getSecondaryContacts())) {
             DrcSyncedStatus drcSyncedStatus = drcSyncedStatusRepository.findByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
             participantVo = extractParticipantVo(drcSyncedStatus);
-            if (participantVo != null) {
-                secondaryContactAndSSNChanges = ParticipantDataUtil.findSecondaryContactAndSsnChanges(participantVo, accountInfoUpdateEventDto.getParticipant(), ssn);
-            }
+            secondaryContactAndSSNChanges = ParticipantDataUtil.findSecondaryContactAndSsnChanges(participantVo, accountInfoUpdateEventDto.getParticipant(), ssn);
         }
 
         if ((!CollectionUtils.isEmpty(secondaryContactAndSSNChanges) || participantVo == null) && sendSecondaryContactAndSSNInfo.test(ssn, secondaryContactAndSSNChanges)) {

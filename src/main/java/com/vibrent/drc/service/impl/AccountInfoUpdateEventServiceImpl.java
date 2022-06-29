@@ -2,23 +2,31 @@ package com.vibrent.drc.service.impl;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.model.dstu2.resource.QuestionnaireResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.vibrent.acadia.web.rest.dto.UserDTO;
 import com.vibrent.acadia.web.rest.dto.form.*;
 import com.vibrent.drc.configuration.DrcProperties;
 import com.vibrent.drc.converter.FormEntryConverter;
+import com.vibrent.drc.domain.DRCUpdateInfoSyncRetry;
 import com.vibrent.drc.dto.ExternalApiRequestLog;
+import com.vibrent.drc.dto.Participant;
+import com.vibrent.drc.enumeration.ConsentWithdrawStatus;
+import com.vibrent.drc.enumeration.DataTypeEnum;
 import com.vibrent.drc.enumeration.ExternalEventType;
-import com.vibrent.drc.service.AccountInfoUpdateEventHelperService;
-import com.vibrent.drc.service.AccountInfoUpdateEventService;
-import com.vibrent.drc.service.ApiService;
-import com.vibrent.drc.service.DRCBackendProcessorWrapper;
+import com.vibrent.drc.exception.BusinessProcessingException;
+import com.vibrent.drc.repository.DRCUpdateInfoSyncRetryRepository;
+import com.vibrent.drc.service.*;
 import com.vibrent.drc.util.*;
+import com.vibrent.drc.vo.DrcResponseVo;
 import com.vibrent.vxp.push.*;
 import com.vibrenthealth.drcutils.connector.HttpResponseWrapper;
 import com.vibrenthealth.drcutils.service.DRCRetryService;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
 
 import java.util.*;
@@ -39,51 +47,83 @@ public class AccountInfoUpdateEventServiceImpl implements AccountInfoUpdateEvent
     private final DrcProperties drcProperties;
     private final AccountInfoUpdateEventHelperService accountInfoUpdateEventHelperService;
     private final FormEntryConverter formEntryConverter;
+    private final DRCParticipantService participantService;
+    private final DRCUpdateInfoSyncRetryRepository drcUpdateInfoSyncRetryRepository;
 
     private final DRCRetryService retryService;
-    private FhirContext fhirContext = FhirContext.forDstu2();
+    private final FhirContext fhirContext = FhirContext.forDstu2();
 
     public AccountInfoUpdateEventServiceImpl(ApiService apiService, DRCBackendProcessorWrapper drcBackendProcessorWrapper,
                                              DrcProperties drcProperties,
                                              DRCRetryService retryService,
-                                             AccountInfoUpdateEventHelperService accountInfoUpdateEventHelperService, FormEntryConverter formEntryConverter) {
+                                             AccountInfoUpdateEventHelperService accountInfoUpdateEventHelperService,
+                                             FormEntryConverter formEntryConverter,
+                                             DRCParticipantService participantService,
+                                             DRCUpdateInfoSyncRetryRepository drcUpdateInfoSyncRetryRepository) {
         this.apiService = apiService;
         this.drcBackendProcessorWrapper = drcBackendProcessorWrapper;
         this.drcProperties = drcProperties;
         this.retryService = retryService;
         this.accountInfoUpdateEventHelperService = accountInfoUpdateEventHelperService;
         this.formEntryConverter = formEntryConverter;
+        this.participantService = participantService;
+        this.drcUpdateInfoSyncRetryRepository = drcUpdateInfoSyncRetryRepository;
+    }
+
+    @Transactional
+    @Override
+    public void processAccountInfoUpdates(AccountInfoUpdateEventDto accountInfoUpdateEventDto) {
+        processAccountInfoUpdates(accountInfoUpdateEventDto, true);
     }
 
     @Override
-    public void processAccountInfoUpdates(AccountInfoUpdateEventDto accountInfoUpdateEventDto) {
+    public void processAccountInfoUpdates(AccountInfoUpdateEventDto accountInfoUpdateEventDto, boolean isNewMessage) {
+        if (accountInfoUpdateEventDto == null || accountInfoUpdateEventDto.getParticipant() == null) {
+            return;
+        }
 
-        //Check with last sync record, if there is change in user account info then sends user account info to DRC and save the successfully sent fields to DB.
-        accountInfoUpdateEventHelperService.processIfUserAccountUpdated(accountInfoUpdateEventDto, () -> sendAccountInfoUpdates(accountInfoUpdateEventDto));
+        try {
+            if (isNewMessage) {
+                drcUpdateInfoSyncRetryRepository.deleteByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
+            }
 
-        accountInfoUpdateEventHelperService.processIfUserSecondaryContactOrSSNUpdated(accountInfoUpdateEventDto, (ssn, secondaryContactTypes) ->
-                sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactTypes));
+            if (isParticipantWithdrawn(accountInfoUpdateEventDto.getParticipant())) {
+                drcUpdateInfoSyncRetryRepository.deleteByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
+                return;
+            }
 
+            //Check with last sync record, if there is change in user account info then sends user account info to DRC and save the successfully sent fields to DB.
+            accountInfoUpdateEventHelperService.processIfUserAccountUpdated(accountInfoUpdateEventDto, () -> sendAccountInfoUpdates(accountInfoUpdateEventDto));
+
+            accountInfoUpdateEventHelperService.processIfUserSecondaryContactOrSSNUpdated(accountInfoUpdateEventDto, (ssn, secondaryContactTypes) ->
+                    sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactTypes));
+        } catch (Exception e) {
+            addToRetryQueue(accountInfoUpdateEventDto, true, e.getMessage());
+        }
     }
 
     @Override
     public boolean sendAccountInfoUpdates(AccountInfoUpdateEventDto accountInfoUpdateEventDto) {
         ParticipantDto participant = accountInfoUpdateEventDto.getParticipant();
-
-        boolean isSentToDrc = false;
         FormEntryDTO formEntryDto = null;
 
         try {
             // Get details to build QR
-
             formEntryDto = apiService.getFormEntryDtoByFormName(participant.getVibrentID(), FORM_NAME_CONSENT);
 
-            if (formEntryDto == null || !formEntryDto.getConsentProvided()) {
-                // when user is not consented
+            if (formEntryDto == null || !Boolean.TRUE.equals(formEntryDto.getConsentProvided())) {
+                log.info("DRC-Service: Primary Consent not found or Consent not Provided for the user {}", participant.getVibrentID());
                 return false;
             }
 
-            FormVersionDTO formVersionDTO = apiService.getFormVersionById(formEntryDto.getFormVersionId());
+            if (StringUtils.isEmpty(formEntryDto.getExternalId())) {
+                log.info("DRC-Service: Primary Consent is not sync with drc for user id {}, Partial Questionnaire Response can not be sent. Add entries to retry table", participant.getVibrentID());
+                addToRetryQueue(accountInfoUpdateEventDto, false, "Primary Consent is not sync with drc");
+                return false;
+            }
+
+            ActiveFormVersionDTO activeFormVersionByFormId = apiService.getActiveFormVersionByFormId(formEntryDto.getFormId());
+            FormVersionDTO formVersionDTO = apiService.getFormVersionById(activeFormVersionByFormId.getActiveFormVersionId());
 
             if (formVersionDTO == null) {
                 return false;
@@ -96,13 +136,23 @@ public class AccountInfoUpdateEventServiceImpl implements AccountInfoUpdateEvent
             FormEntryDTO formEntry = convertParticipantDtoToFormEntryDto(participant, formVersionDTO.getId(), formEntryDto);
             boolean drcImpersonation = isImpersonationEnable(formEntryDto.getUpdatedById());
 
-            isSentToDrc = retryService.executeWithRetry(() -> prepareQuestionnaireResponseAndSendToDRC(formEntry, formVersionDTO, participant, drcImpersonation));
+            DrcResponseVo drcResponseVo = retryService.executeWithRetry(() -> prepareQuestionnaireResponseAndSendToDRC(formEntry, formVersionDTO, participant, drcImpersonation));
+            return processDrcResponse(drcResponseVo, accountInfoUpdateEventDto);
 
         } catch (Exception e) {
             log.warn("DRC-Service: Error while processing account info for the participantId: {} .", participant.getExternalID(), e);
+            addToRetryQueue(accountInfoUpdateEventDto, true, e.getMessage());
         }
 
-        return isSentToDrc;
+        return false;
+    }
+
+    private boolean isParticipantWithdrawn(@NonNull ParticipantDto participantDto) throws Exception {
+        Participant participant = retryService.executeWithRetry(() -> participantService
+                .getParticipantById(participantDto.getVibrentID(), participantDto.getExternalID()));
+
+        return participant != null && (participant.getWithdrawalStatus() == ConsentWithdrawStatus.EARLY_OUT
+                || participant.getWithdrawalStatus() == ConsentWithdrawStatus.NO_USE);
     }
 
     @Override
@@ -113,6 +163,19 @@ public class AccountInfoUpdateEventServiceImpl implements AccountInfoUpdateEvent
         List<SecondaryContactDto> secondaryContacts = accountInfoUpdateEventDto.getParticipant().getSecondaryContacts();
         try {
             if (!CollectionUtils.isEmpty(secondaryContacts)) {
+
+                FormEntryDTO basicFormEntryDto = apiService.getFormEntryDtoByFormName(accountInfoUpdateEventDto.getParticipant().getVibrentID(), FORM_NAME_BASICS);
+                if (basicFormEntryDto == null) {
+                    log.info("DRC-Service: The Basic form is not found for user id {}.", accountInfoUpdateEventDto.getParticipant().getVibrentID());
+                    return false;
+                }
+
+                if (StringUtils.isEmpty(basicFormEntryDto.getExternalId())) {
+                    log.info("DRC-Service: The Basic form is not sync with drc for user id {}, Partial Questionnaire Response is not sent.", accountInfoUpdateEventDto.getParticipant().getVibrentID());
+                    addToRetryQueue(accountInfoUpdateEventDto, false, "The Basic form is not sync with drc");
+                    return false;
+                }
+
                 FormEntryDTO formEntryDTO = formEntryConverter.convertSecondaryContactInformationToBasicsForm(accountInfoUpdateEventDto.getParticipant(), ssn, changedFields);
 
                 FormVersionDTO formVersionDTO = apiService.getFormVersionById(formEntryDTO.getFormVersionId());
@@ -121,24 +184,25 @@ public class AccountInfoUpdateEventServiceImpl implements AccountInfoUpdateEvent
                     return false;
                 }
 
-                return retryService.executeWithRetry(() -> prepareQuestionnaireResponseAndSendToDRC(formEntryDTO, formVersionDTO, accountInfoUpdateEventDto.getParticipant(), false));
+                DrcResponseVo drcResponseVo = retryService.executeWithRetry(() -> prepareQuestionnaireResponseAndSendToDRC(formEntryDTO, formVersionDTO, accountInfoUpdateEventDto.getParticipant(), false));
+                return processDrcResponse(drcResponseVo, accountInfoUpdateEventDto);
             }
         } catch (Exception e) {
             log.warn("DRC-Service: Error while processing Secondary Contact Info for the participantId: {} .", accountInfoUpdateEventDto.getParticipant().getExternalID(), e);
+            addToRetryQueue(accountInfoUpdateEventDto, true, e.getMessage());
         }
         return false;
     }
 
-    private boolean prepareQuestionnaireResponseAndSendToDRC(FormEntryDTO formEntryDTO, FormVersionDTO formVersionDTO, ParticipantDto participantDto, boolean drcImpersonation) throws Exception {
+    private DrcResponseVo prepareQuestionnaireResponseAndSendToDRC(FormEntryDTO formEntryDTO, FormVersionDTO formVersionDTO, ParticipantDto participantDto, boolean drcImpersonation) throws Exception {
         //Build QR
         QuestionnaireResponse questionnaireResponse = null;
         questionnaireResponse = FHIRConverterUtility
                 .convertFormEntryToQuestionnaireResponse(formEntryDTO, formVersionDTO, participantDto.getExternalID(), StringUtil.getLanguageKey(participantDto.getLanguage()), drcImpersonation);
         return sendToDRC(questionnaireResponse, formEntryDTO, participantDto);
-
     }
 
-    private boolean sendToDRC(QuestionnaireResponse questionnaireResponse, FormEntryDTO formEntryDTO, ParticipantDto participantDto) throws Exception {
+    private DrcResponseVo sendToDRC(QuestionnaireResponse questionnaireResponse, FormEntryDTO formEntryDTO, ParticipantDto participantDto) throws Exception {
         HttpResponseWrapper httpResponseWrapper = null;
 
         String url = drcProperties.getDrcApiBaseUrl() + URL_PARTICIPANT + "/" + participantDto.getExternalID() + "/QuestionnaireResponse";
@@ -148,8 +212,8 @@ public class AccountInfoUpdateEventServiceImpl implements AccountInfoUpdateEvent
 
 
         httpResponseWrapper = drcBackendProcessorWrapper.sendRequestReturnDetails(url, questionnaireResponseString, RequestMethod.POST, null, externalApiRequestLog);
-        return (httpResponseWrapper != null && (httpResponseWrapper.getStatusCode() == 200));
 
+        return  buildDrcResponse(httpResponseWrapper);
     }
 
     private boolean isImpersonationEnable(Long userId) {
@@ -299,4 +363,60 @@ public class AccountInfoUpdateEventServiceImpl implements AccountInfoUpdateEvent
         return fieldIdMap;
     }
 
+    private void addToRetryQueue(AccountInfoUpdateEventDto accountInfoUpdateEventDto,
+                                 boolean incrementRetryCounter,
+                                 String reason) {
+
+        DRCUpdateInfoSyncRetry entry = drcUpdateInfoSyncRetryRepository.findByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
+        if (entry == null) {
+            entry = new DRCUpdateInfoSyncRetry();
+            entry.setVibrentId(accountInfoUpdateEventDto.getVibrentID());
+            entry.setType(DataTypeEnum.ACCOUNT_UPDATE_DATA);
+            entry.setRetryCount(0L);
+            entry.setErrorDetails(reason);
+        }
+
+        if (incrementRetryCounter) {
+            entry.setRetryCount(entry.getRetryCount() == null ? 1L : entry.getRetryCount() + 1L);
+        }
+
+        entry.setErrorDetails(reason);
+
+        try {
+            entry.setPayload(JacksonUtil.getMapper().writeValueAsString(accountInfoUpdateEventDto));
+            drcUpdateInfoSyncRetryRepository.save(entry);
+        } catch (JsonProcessingException e) {
+            throw new BusinessProcessingException("Failed to add entry to retry queue ");
+        }
+    }
+
+    private static DrcResponseVo buildDrcResponse(@NonNull HttpResponseWrapper httpResponseWrapper) {
+        boolean isSuccess = (httpResponseWrapper.getStatusCode() == 200);
+
+        DrcResponseVo drcResponseVo = new DrcResponseVo();
+        drcResponseVo.setSuccess(isSuccess);
+        drcResponseVo.setHttpCode(httpResponseWrapper.getStatusCode());
+
+        if (!isSuccess) {
+            drcResponseVo.setErrorResponse(httpResponseWrapper.getResponseBody());
+        }
+
+        return drcResponseVo;
+    }
+
+    private  boolean processDrcResponse(DrcResponseVo drcResponseVo, AccountInfoUpdateEventDto accountInfoUpdateEventDto) {
+
+        if (drcResponseVo != null) {
+            if (drcResponseVo.isSuccess()) {
+                drcUpdateInfoSyncRetryRepository.deleteByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
+                return true;
+            }
+
+            if (drcResponseVo.getHttpCode() == 400) {
+                addToRetryQueue(accountInfoUpdateEventDto, true, drcResponseVo.getErrorResponse());
+            }
+        }
+
+        return false;
+    }
 }

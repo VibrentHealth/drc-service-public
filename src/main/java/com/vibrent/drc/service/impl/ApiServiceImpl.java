@@ -85,10 +85,13 @@ public class ApiServiceImpl implements ApiService {
     }
 
     @Override
-    public List<FormEntryDTO> getUserFormEntryDTO(Long userId) {
+    public List<FormEntryDTO> getUserFormEntryDTO(Long userId, String formName) {
         try {
-            String url = apiUrl + GET_FORM_ENTRY_API + userId;
+            String url = apiUrl + GET_FORM_ENTRY_API;
             UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url);
+            builder.queryParam("userId", userId);
+            builder.queryParam("formName", formName);
+
             OAuth2AccessToken accessToken = keycloakDrcInternalCredentialsRestTemplate.getAccessToken();
             String response = restClientUtil.getRequest(builder, restClientUtil.addAuthHeader(accessToken.getValue()));
             return JacksonUtil.getMapper().readValue(response, JacksonUtil.getMapper().getTypeFactory().constructCollectionType(List.class, FormEntryDTO.class));
@@ -138,7 +141,7 @@ public class ApiServiceImpl implements ApiService {
 
     @Override
     public FormEntryDTO getFormEntryDtoByFormName(@NotNull Long userId, @NotNull String formName) {
-        List<FormEntryDTO> formEntryDTOList = getUserFormEntryDTO(userId);
+        List<FormEntryDTO> formEntryDTOList = getUserFormEntryDTO(userId, formName);
         Optional<FormEntryDTO> formEntryDTOOptional = formEntryDTOList.stream().filter(f -> (formName).equals(f.getFormName())).findFirst();
         return formEntryDTOOptional.orElse(null);
     }

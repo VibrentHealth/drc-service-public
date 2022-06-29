@@ -67,7 +67,7 @@ public class DRCSalivaryOrderServiceImpl implements DRCSalivaryOrderService {
 
         OrderTrackingDetails orderDetails = orderTrackingDetailsService.getOrderDetails(trackDeliveryResponseDto.getTrackingID());
         if(orderDetails == null) {
-            throw new BusinessValidationException("DRCSupplyStatusServiceImpl: Unable to continue supply delivery, salivary order status is null");
+            throw new BusinessValidationException("DRCSupplyStatusServiceImpl: Unable to continue supply delivery, order tracking not found for trackingId: " + trackDeliveryResponseDto.getTrackingID());
         }
 
         DRCSupplyMessageStatusType statusType = determineStatusByDTO(trackDeliveryResponseDto, orderDetails);

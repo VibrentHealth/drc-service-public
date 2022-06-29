@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.vibrent.drc.configuration.DrcProperties;
 import com.vibrent.drc.dto.ExternalApiRequestLog;
 import com.vibrent.drc.dto.Participant;
+import com.vibrent.drc.exception.BusinessProcessingException;
 import com.vibrent.drc.exception.DrcException;
 import com.vibrent.drc.service.AccountInfoUpdateEventHelperService;
 import com.vibrent.drc.service.DRCBackendProcessorWrapper;
@@ -14,6 +15,7 @@ import com.vibrent.drc.util.JacksonUtil;
 import com.vibrent.vxp.push.AccountInfoUpdateEventDto;
 import com.vibrent.vxp.push.ParticipantDto;
 import com.vibrenthealth.drcutils.connector.HttpResponseWrapper;
+import com.vibrenthealth.drcutils.exception.DrcConnectorException;
 import com.vibrenthealth.drcutils.service.DRCRetryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -137,6 +139,12 @@ class DRCParticipantServiceImplTest {
         when(drcBackendProcessorWrapper.sendRequest(anyString(), any(), any(RequestMethod.class), any(), any(ExternalApiRequestLog.class)))
                 .thenReturn(new HttpResponseWrapper(400, null));
         assertNull(drcParticipantService.getParticipantById(USER_ID, PARTICIPANT_ID));
+    }
+
+    @Test
+    void testGetParticipantReturnsException() throws Exception {
+        doThrow(new DrcConnectorException("exception")).when(drcBackendProcessorWrapper).sendRequest(anyString(), any(), any(RequestMethod.class), any(), any(ExternalApiRequestLog.class));
+        assertThrows(BusinessProcessingException.class, () -> drcParticipantService.getParticipantById(USER_ID, PARTICIPANT_ID));
     }
 
     @Test

@@ -26,7 +26,7 @@ public interface ApiService {
      */
     UserDTO getUserDTO(Long vibrentId);
 
-    List<FormEntryDTO>  getUserFormEntryDTO(Long userId);
+    List<FormEntryDTO>  getUserFormEntryDTO(Long userId, String formName);
 
     FormVersionDTO getFormVersionById(Long id);
 

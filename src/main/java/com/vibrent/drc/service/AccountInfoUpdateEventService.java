@@ -11,6 +11,8 @@ public interface AccountInfoUpdateEventService {
      */
     void processAccountInfoUpdates(AccountInfoUpdateEventDto accountInfoUpdateEventDto);
 
+    void processAccountInfoUpdates(AccountInfoUpdateEventDto accountInfoUpdateEventDto, boolean isNewMessage);
+
     /**
      * Send Account Info updates to DRC
      */
@@ -20,5 +22,4 @@ public interface AccountInfoUpdateEventService {
      * Send Secondary Contact or SSN updates to DRC
      */
     boolean sendSecondaryContactInfoAndSsnUpdates(AccountInfoUpdateEventDto accountInfoUpdateEventDto, String ssn, Set<String> secondaryContactTypes);
-
 }

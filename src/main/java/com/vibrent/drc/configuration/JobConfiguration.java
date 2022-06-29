@@ -1,5 +1,6 @@
 package com.vibrent.drc.configuration;
 
+import com.vibrent.drc.scheduling.DRCUpdateInfoSyncRetryJob;
 import com.vibrent.drc.scheduling.ParticipantGenomicStatusBatchProcessingJob;
 import com.vibrent.drc.scheduling.DRCParticipantGenomicsStatusFetchJob;
 import org.quartz.*;
@@ -40,12 +41,7 @@ public class JobConfiguration {
 
     @Bean
     public Scheduler rescheduleCronJob(SchedulerFactoryBean schedulerFactoryBean) throws SchedulerException, ParseException {
-        Scheduler scheduler = schedulerFactoryBean.getScheduler();
-        TriggerKey triggerKey = new TriggerKey("DRC_Genomic_Participant_Status_Fetch_Trigger");
-        CronTriggerImpl trigger = (CronTriggerImpl) scheduler.getTrigger(triggerKey);
-        trigger.setCronExpression(drcProperties.getParticipantStatusFetchCron());
-        scheduler.rescheduleJob(triggerKey, trigger);
-        return scheduler;
+        return rescheduleCronJob(schedulerFactoryBean, "DRC_Genomic_Participant_Status_Fetch_Trigger", drcProperties.getParticipantStatusFetchCron());
     }
 
     @Bean
@@ -69,13 +65,42 @@ public class JobConfiguration {
 
     @Bean
     public Scheduler rescheduleGenomicStatusBatchProcessingCronJob(SchedulerFactoryBean schedulerFactoryBean) throws SchedulerException, ParseException {
+        return rescheduleCronJob(schedulerFactoryBean, "DRC_Participant_Genomic_Status_Batch_Processing_Trigger", drcProperties.getParticipantBatchProcessingCron());
+    }
+
+    @Bean
+    public JobDetail drcUpdateInfoSyncRetryJob() {
+        return JobBuilder.newJob().ofType(DRCUpdateInfoSyncRetryJob.class)
+                .storeDurably()
+                .withIdentity("DRC_Update_Info_Sync_Retry_Job")
+                .withDescription("Invoke DRC Sync Retry Job")
+                .build();
+    }
+
+    @Bean
+    public Trigger drcDrcSyncRetryQueueJobTrigger(JobDetail drcUpdateInfoSyncRetryJob) {
+        return TriggerBuilder.newTrigger().forJob(drcUpdateInfoSyncRetryJob    )
+                .withIdentity("DRC_Update_Info_Sync_Retry_Trigger")
+                .withDescription("Invoke DRC Sync Retry Job Trigger")
+                .withSchedule(CronScheduleBuilder.cronSchedule(drcProperties.getParticipantStatusFetchCron())
+                        .withMisfireHandlingInstructionDoNothing())
+                .build();
+    }
+
+    @Bean
+    public Scheduler drcDrcSyncRetryQueueRescheduleCronJob(SchedulerFactoryBean schedulerFactoryBean) throws SchedulerException, ParseException {
+        return rescheduleCronJob(schedulerFactoryBean, "DRC_Update_Info_Sync_Retry_Trigger", drcProperties.getDrcSyncRetryCron());
+    }
+
+    private Scheduler rescheduleCronJob(SchedulerFactoryBean schedulerFactoryBean,
+                                        String triggerName,
+                                        String cronExpression) throws SchedulerException, ParseException {
         Scheduler scheduler = schedulerFactoryBean.getScheduler();
-        TriggerKey triggerKey = new TriggerKey("DRC_Participant_Genomic_Status_Batch_Processing_Trigger");
+        TriggerKey triggerKey = new TriggerKey(triggerName);
         CronTriggerImpl trigger = (CronTriggerImpl) scheduler.getTrigger(triggerKey);
-        trigger.setCronExpression(drcProperties.getParticipantBatchProcessingCron());
+        trigger.setCronExpression(cronExpression);
         scheduler.rescheduleJob(triggerKey, trigger);
         return scheduler;
     }
-
 
 }

@@ -32,7 +32,7 @@ public final class DrcConstant {
     public static final String SALIVARY_KIT_DETAILS_API = "/api/salivary/order/device";
     public static final String USER_DETAILS_API = "/api/user";
     public static final String GET_FORM_VERSION_API = "/api/formVersion/";
-    public static final String GET_FORM_ENTRY_API = "/api/formEntryAdmin/user/";
+    public static final String GET_FORM_ENTRY_API = "/api/formEntryAdmin/user";
     public static final String URL_PARTICIPANT = "/Participant";
     public static final String GET_ACTIVE_FORM_VERSION_API = "/api/forms/active/";
     public static final String GET_SSN_INFO_API ="/api/user/ssn/";

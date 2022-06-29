@@ -74,6 +74,11 @@ vibrent:
       enabled: ${SUPPLY_STATUS_ENABLED:false}
     accountInfoUpdates:
       enabled: ${ACCOUNT_INFO_UPDATES_ENABLED:false}
+    sync:
+      retry:
+        cron: ${DRC_UPDATE_INFO_SYNC_RETRY_CRON:0 0 0/1 1/1 * ? *}
+        maxRetryCount: ${DRC_UPDATE_INFO_SYNC_MAX_RETRY_COUNT:10}
+
     forms:
       basics:
         id: ${BASICS_FORM_ID:284}

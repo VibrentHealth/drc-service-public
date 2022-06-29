@@ -46,9 +46,18 @@ public final class ParticipantDataUtil {
 
 
     public static Set<String> findSecondaryContactAndSsnChanges(ParticipantVo participantVo, ParticipantDto participantDto, String ssn) {
-        Map<String, SecondaryContactVo> secondaryContactsVo = participantVo.getSecondaryContacts();
-        List<SecondaryContactDto> secondaryContactsDto = participantDto.getSecondaryContacts();
+
+        //CHECK SSN
         Set<String> changes = new HashSet<>();
+
+        if (isSSNUpdated(ssn, participantVo)) {
+            changes.add(SSN);
+        }
+
+        //CHECK SECONDARY CONTACT INFO
+        Map<String, SecondaryContactVo> secondaryContactsVo = participantVo == null ? Collections.emptyMap() : participantVo.getSecondaryContacts();
+        List<SecondaryContactDto> secondaryContactsDto = participantDto.getSecondaryContacts();
+
         if (CollectionUtils.isEmpty(secondaryContactsVo) && CollectionUtils.isEmpty(secondaryContactsDto)) {
             return changes;
         }
@@ -69,9 +78,7 @@ public final class ParticipantDataUtil {
         if (isDifferent(secondaryContactsVo.get(SecondaryContactType.CONTACT_TWO.toString()), secondaryContactTwo)) {
             changes.add(CONTACT_TWO);
         }
-        if (isSSNUpdated(ssn, participantVo)) {
-            changes.add(SSN);
-        }
+
         return changes;
     }
 

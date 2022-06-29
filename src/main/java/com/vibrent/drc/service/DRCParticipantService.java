@@ -1,6 +1,6 @@
 package com.vibrent.drc.service;
 
-import com.vibrent.drc.exception.DrcException;
+import com.vibrent.drc.dto.Participant;
 import com.vibrent.vxp.push.AccountInfoUpdateEventDto;
 
 import javax.validation.constraints.NotNull;
@@ -13,4 +13,5 @@ public interface DRCParticipantService {
      */
     void patchTestParticipant(@NotNull AccountInfoUpdateEventDto accountInfoUpdateEventDto);
 
+    Participant getParticipantById(Long userId, String participantId);
 }

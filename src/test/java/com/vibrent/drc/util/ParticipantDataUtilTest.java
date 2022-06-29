@@ -127,6 +127,9 @@ class ParticipantDataUtilTest {
         var retValue = ParticipantDataUtil.findSecondaryContactAndSsnChanges(new ParticipantVo(), new ParticipantDto(), null);
         assertEquals(0, retValue.size());
 
+        retValue = ParticipantDataUtil.findSecondaryContactAndSsnChanges(new ParticipantVo(), new ParticipantDto(), "SSN");
+        assertEquals(1, retValue.size());
+
         var dtoList = List.of(buildSecondaryContactDto(SecondaryContactType.CONTACT_ONE), buildSecondaryContactDto(SecondaryContactType.CONTACT_TWO));
         var voList = convertToSecondaryContactVoMap(dtoList);
         ParticipantVo participantVo3 = new ParticipantVo();

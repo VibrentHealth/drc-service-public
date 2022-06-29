@@ -5,6 +5,7 @@ import com.vibrent.drc.constants.DrcConstant;
 import com.vibrent.drc.dto.ExternalApiRequestLog;
 import com.vibrent.drc.dto.Participant;
 import com.vibrent.drc.enumeration.ExternalEventType;
+import com.vibrent.drc.exception.BusinessProcessingException;
 import com.vibrent.drc.service.AccountInfoUpdateEventHelperService;
 import com.vibrent.drc.service.DRCBackendProcessorWrapper;
 import com.vibrent.drc.service.DRCParticipantService;
@@ -107,16 +108,22 @@ public class DRCParticipantServiceImpl implements DRCParticipantService {
      *
      * @return participant object received from DRC
      */
-    public Participant getParticipantById(Long userId, String participantId) throws Exception {
-        if (StringUtils.isEmpty(participantId)) {
-            log.warn("DRC Service: participantId is null or empty. Cannot fetch participant details from DRC");
-            return null;
-        }
+    @Override
+    public Participant getParticipantById(Long userId, String participantId) {
+        try {
+            if (StringUtils.isEmpty(participantId)) {
+                log.warn("DRC Service: participantId is null or empty. Cannot fetch participant details from DRC");
+                return null;
+            }
 
-        String fullUrl = getParticipantFullUrl(participantId);
-        ExternalApiRequestLog externalApiRequestLog = ExternalApiRequestLogUtil.createExternalApiRequestLog(ExternalEventType.DRC_RETRIEVE_USER_INFO, userId, participantId, null);
-        HttpResponseWrapper response = drcBackendProcessorWrapper.sendRequest(fullUrl, null, RequestMethod.GET, null, externalApiRequestLog);
-        return createParticipantFromResponse(response.getResponseBody());
+            String fullUrl = getParticipantFullUrl(participantId);
+            ExternalApiRequestLog externalApiRequestLog = ExternalApiRequestLogUtil.createExternalApiRequestLog(ExternalEventType.DRC_RETRIEVE_USER_INFO, userId, participantId, null);
+            HttpResponseWrapper response = drcBackendProcessorWrapper.sendRequest(fullUrl, null, RequestMethod.GET, null, externalApiRequestLog);
+            return createParticipantFromResponse(response.getResponseBody());
+        }
+        catch (Exception e) {
+            throw new BusinessProcessingException("Failed to retrieve user info. Error Msg: "+  e.getMessage(), e);
+        }
     }
 
     private Participant createParticipantFromResponse(String response)

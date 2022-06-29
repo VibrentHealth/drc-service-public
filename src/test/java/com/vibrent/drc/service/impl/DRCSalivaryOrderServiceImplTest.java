@@ -337,7 +337,6 @@ public class DRCSalivaryOrderServiceImplTest {
         assertNotEquals(0L, actual.getRequestTimestamp());
         assertNotEquals(0L, actual.getResponseTimestamp());
         assertEquals(testUserId, actual.getInternalId());
-        assertEquals(testParticipantId, actual.getExternalId());
         assertEquals(ExternalEventType.DRC_SUPPLY_STATUS, actual.getEventType());
         assertNotNull(actual.getDescription());
         assertEquals(ExternalEventSource.DRC_SERVICE, actual.getEventSource());
@@ -378,7 +377,6 @@ public class DRCSalivaryOrderServiceImplTest {
         assertNotEquals(0L, actual.getRequestTimestamp());
         assertNotEquals(0L, actual.getResponseTimestamp());
         assertEquals(testUserId, actual.getInternalId());
-        assertEquals(testParticipantId, actual.getExternalId());
         assertEquals(ExternalEventType.DRC_SUPPLY_STATUS, actual.getEventType());
         assertNotNull(actual.getDescription());
         assertEquals(ExternalEventSource.DRC_SERVICE, actual.getEventSource());
@@ -425,7 +423,6 @@ public class DRCSalivaryOrderServiceImplTest {
         assertNotEquals(0L, actual.getRequestTimestamp());
         assertNotEquals(0L, actual.getResponseTimestamp());
         assertEquals(testUserId, actual.getInternalId());
-        assertEquals(testParticipantId, actual.getExternalId());
         assertEquals(ExternalEventType.DRC_SUPPLY_STATUS, actual.getEventType());
         assertNotNull(actual.getDescription());
         assertEquals(ExternalEventSource.DRC_SERVICE, actual.getEventSource());

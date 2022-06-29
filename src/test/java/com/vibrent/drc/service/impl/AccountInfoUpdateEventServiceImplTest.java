@@ -10,12 +10,15 @@ import com.vibrent.acadia.web.rest.dto.UserSSNDTO;
 import com.vibrent.acadia.web.rest.dto.form.*;
 import com.vibrent.acadia.web.rest.dto.helpers.form.fieldValue.OptionsValue;
 import com.vibrent.drc.configuration.DrcProperties;
+import com.vibrent.drc.constants.ProfileAccountConstants;
 import com.vibrent.drc.converter.FormEntryConverter;
 import com.vibrent.drc.converter.FormFieldEntryConverter;
-import com.vibrent.drc.service.AccountInfoUpdateEventService;
-import com.vibrent.drc.service.ApiService;
-import com.vibrent.drc.service.DRCBackendProcessorWrapper;
-import com.vibrent.drc.service.ExternalApiRequestLogsService;
+import com.vibrent.drc.domain.DRCUpdateInfoSyncRetry;
+import com.vibrent.drc.dto.Participant;
+import com.vibrent.drc.enumeration.ConsentWithdrawStatus;
+import com.vibrent.drc.enumeration.DataTypeEnum;
+import com.vibrent.drc.repository.DRCUpdateInfoSyncRetryRepository;
+import com.vibrent.drc.service.*;
 import com.vibrent.drc.util.JacksonUtil;
 import com.vibrent.vxp.push.*;
 import com.vibrenthealth.drcutils.connector.HttpResponseWrapper;
@@ -24,26 +27,29 @@ import com.vibrenthealth.drcutils.service.DRCBackendProcessorService;
 import com.vibrenthealth.drcutils.service.DRCConfigService;
 import com.vibrenthealth.drcutils.service.DRCRetryService;
 import com.vibrenthealth.drcutils.service.impl.DRCRetryServiceImpl;
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.bind.annotation.RequestMethod;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.vibrent.drc.constants.DrcConstant.ROLE_CATI;
 import static com.vibrent.drc.constants.ProfileAccountConstants.FORM_NAME_CONSENT;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AccountInfoUpdateEventServiceImplTest {
@@ -83,6 +89,9 @@ class AccountInfoUpdateEventServiceImplTest {
     @Mock
     DRCConfigService drcConfigService;
 
+    @Mock
+    DRCParticipantService participantService;
+
     private AccountInfoUpdateEventService accountInfoUpdateEventService;
 
     private boolean drcImpersonation = false;
@@ -95,13 +104,17 @@ class AccountInfoUpdateEventServiceImplTest {
     @Mock
     private AccountInfoUpdateEventHelperServiceImpl accountInfoUpdateEventHelperService;
 
+    @Mock
+    private DRCUpdateInfoSyncRetryRepository drcUpdateInfoSyncRetryRepository;
+
     @BeforeEach
     public void setUp() {
         formFieldEntryConverter = new FormFieldEntryConverter();
         formEntryConverter = new FormEntryConverter(apiService, drcProperties, formFieldEntryConverter);
         retryService = new DRCRetryServiceImpl(drcConfigService);
         drcBackendProcessorWrapper = new DRCBackendProcessorWrapperImpl(externalApiRequestLogsService, drcBackendProcessorService);
-        accountInfoUpdateEventService = new AccountInfoUpdateEventServiceImpl(apiService, drcBackendProcessorWrapper, drcProperties, retryService, accountInfoUpdateEventHelperService, formEntryConverter);
+        accountInfoUpdateEventService = new AccountInfoUpdateEventServiceImpl(apiService, drcBackendProcessorWrapper, drcProperties, retryService, accountInfoUpdateEventHelperService, formEntryConverter, participantService, drcUpdateInfoSyncRetryRepository);
+
         initializeAccountInfoUpdateDto();
         initializeUserDTO();
         initializeFormEntryDTO(FORM_NAME_CONSENT);
@@ -116,6 +129,7 @@ class AccountInfoUpdateEventServiceImplTest {
     @Test
     void sendAccountInfoUpdates() throws Exception {
         when(this.apiService.getFormEntryDtoByFormName(VIBRENT_ID, FORM_NAME_CONSENT)).thenReturn(initializeFormEntryDTO());
+        when(apiService.getActiveFormVersionByFormId(295L)).thenReturn(getActiveConsentFormVersionDTO());
         when(this.apiService.getFormVersionById(2L)).thenReturn(formVersionDTO());
         when(drcProperties.getDrcApiBaseUrl()).thenReturn("https://pmi-drc-api-test.appspot.com");
         when(drcConfigService.getRetryNum()).thenReturn(1L);
@@ -131,6 +145,7 @@ class AccountInfoUpdateEventServiceImplTest {
     @Test
     void sendAccountInfoUpdatesWhenUserIsCati() throws Exception {
         when(this.apiService.getFormEntryDtoByFormName(VIBRENT_ID, FORM_NAME_CONSENT)).thenReturn(initializeFormEntryDTO());
+        when(apiService.getActiveFormVersionByFormId(295L)).thenReturn(getActiveConsentFormVersionDTO());
         when(this.apiService.getFormVersionById(2L)).thenReturn(formVersionDTO());
         when(this.apiService.getUserDTO(CATI_USER_ID)).thenReturn(getCatiUser(CATI_USER_ID));
         when(drcProperties.getDrcApiBaseUrl()).thenReturn("https://pmi-drc-api-test.appspot.com");
@@ -138,7 +153,26 @@ class AccountInfoUpdateEventServiceImplTest {
         when(this.drcBackendProcessorService.sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class))).thenReturn(getDrcResponse());
 
         assertTrue(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
+        verify(drcUpdateInfoSyncRetryRepository, times(1)).deleteByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
+
     }
+
+    @DisplayName("When account info updated is received when user is withdrawn "+
+            "Then verify account information is not sent.")
+    @Test
+    void accountInfoUpdateEventReceivedWhenUserIsAlreadyWithDrawnThenVerifyAccountInfoIsNotSenToDRC() throws Exception {
+
+        when(drcConfigService.getRetryNum()).thenReturn(1L);
+        when(participantService.getParticipantById(anyLong(), anyString())).thenReturn(getDrcParticipant(ConsentWithdrawStatus.NO_USE));
+        accountInfoUpdateEventService.processAccountInfoUpdates(accountInfoUpdateEventDto);
+        verify(accountInfoUpdateEventHelperService, times(0)).processIfUserAccountUpdated(any(AccountInfoUpdateEventDto.class), any(BooleanSupplier.class));
+
+        when(participantService.getParticipantById(anyLong(), anyString())).thenReturn(getDrcParticipant(ConsentWithdrawStatus.EARLY_OUT));
+        accountInfoUpdateEventService.processAccountInfoUpdates(accountInfoUpdateEventDto);
+        verify(accountInfoUpdateEventHelperService, times(0)).processIfUserAccountUpdated(any(AccountInfoUpdateEventDto.class), any(BooleanSupplier.class));
+    }
+
+
 
     @DisplayName("When account info updated" +
             "And Consent Form entry is null" +
@@ -150,13 +184,33 @@ class AccountInfoUpdateEventServiceImplTest {
     }
 
     @DisplayName("When account info updated" +
+            "And Consent is not sync with drc" +
+            "Then verify account information is not sent.")
+    @Test
+    void testAccountInfoUpdatesNotSentIfConsentFormIsNotSync() {
+        FormEntryDTO formEntryDTO = initializeFormEntryDTO();
+        formEntryDTO.setIsConsentProvided(false);
+        when(this.apiService.getFormEntryDtoByFormName(VIBRENT_ID, FORM_NAME_CONSENT)).thenReturn(formEntryDTO);
+        assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
+
+        formEntryDTO.setExternalId("");
+        when(this.apiService.getFormEntryDtoByFormName(VIBRENT_ID, FORM_NAME_CONSENT)).thenReturn(formEntryDTO);
+        assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
+
+        formEntryDTO.setExternalId(null);
+        when(this.apiService.getFormEntryDtoByFormName(VIBRENT_ID, FORM_NAME_CONSENT)).thenReturn(formEntryDTO);
+        assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
+    }
+
+
+    @DisplayName("When account info updated" +
             "And Form version dto NULL" +
             "Then verify account Info Updates not sent")
     @Test
     void testSendAccountInfoUpdates() throws Exception {
         when(this.apiService.getFormEntryDtoByFormName(VIBRENT_ID, FORM_NAME_CONSENT)).thenReturn(initializeFormEntryDTO());
+        when(apiService.getActiveFormVersionByFormId(295L)).thenReturn(getActiveConsentFormVersionDTO());
         when(this.apiService.getFormVersionById(2L)).thenReturn(null);
-
         assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
     }
 
@@ -166,6 +220,7 @@ class AccountInfoUpdateEventServiceImplTest {
     @Test
     void testAccountInfoUpdatesWhenDrcCommunicationFailsThenExpectExceptionThrown() throws Exception {
         when(this.apiService.getFormEntryDtoByFormName(VIBRENT_ID, FORM_NAME_CONSENT)).thenReturn(initializeFormEntryDTO());
+        when(apiService.getActiveFormVersionByFormId(295L)).thenReturn(getActiveConsentFormVersionDTO());
         when(this.apiService.getFormVersionById(2L)).thenReturn(formVersionDTO());
         when(this.apiService.getUserDTO(CATI_USER_ID)).thenReturn(getCatiUser(CATI_USER_ID));
         when(drcProperties.getDrcApiBaseUrl()).thenReturn("https://pmi-drc-api-test.appspot.com");
@@ -181,6 +236,7 @@ class AccountInfoUpdateEventServiceImplTest {
     void sendSecondaryContactUpdatesOnContactTwoUpdated() throws Exception {
         secondaryContactChanges.add(SecondaryContactType.CONTACT_TWO.toString());
         AccountInfoUpdateEventDto accountInfoUpdateEventDto = convertToAccountInfoUpdateEventDto(ACCOUNT_INFO_UPDATE_EVENT_DTO_TWO);
+        when(this.apiService.getFormEntryDtoByFormName(88707410L, ProfileAccountConstants.FORM_NAME_BASICS)).thenReturn(getForEntryDto());
         when(drcProperties.getBasicsFormId()).thenReturn(284L);
         when(this.apiService.getActiveFormVersionByFormId(284L)).thenReturn(getActiveFormVersionDTO());
         when(this.apiService.getFormVersionById(25097L)).thenReturn(convertToFormVersionDTO(FORM_ENTRY_DTO_SECONDARY_CONTACT_TWO));
@@ -188,6 +244,7 @@ class AccountInfoUpdateEventServiceImplTest {
         when(drcConfigService.getRetryNum()).thenReturn(1L);
         when(this.drcBackendProcessorService.sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class))).thenReturn(getDrcResponse());
         assertTrue(accountInfoUpdateEventService.sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactChanges));
+        verify(drcUpdateInfoSyncRetryRepository, times(1)).deleteByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
     }
 
     @DisplayName("When form version received as null from API" +
@@ -196,9 +253,115 @@ class AccountInfoUpdateEventServiceImplTest {
     void sendSecondaryContactUpdatesWhenFormVersionDtoIsNull() throws Exception {
         secondaryContactChanges.add(SecondaryContactType.CONTACT_TWO.toString());
         AccountInfoUpdateEventDto accountInfoUpdateEventDto = convertToAccountInfoUpdateEventDto(ACCOUNT_INFO_UPDATE_EVENT_DTO_TWO);
+        when(this.apiService.getFormEntryDtoByFormName(88707410L, ProfileAccountConstants.FORM_NAME_BASICS)).thenReturn(getForEntryDto());
         when(this.apiService.getActiveFormVersionByFormId(284L)).thenReturn(getActiveFormVersionDTO());
         when(this.apiService.getFormVersionById(284L)).thenReturn(null);
         assertFalse(accountInfoUpdateEventService.sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactChanges));
+    }
+
+    @DisplayName("When Basic from is not sync with drc" +
+            "Then verify Secondary Contact Update is not sent.")
+    @Test
+    void sendSecondaryContactUpdatesWhenFormEntryDtoIsNull() throws Exception {
+        secondaryContactChanges.add(SecondaryContactType.CONTACT_TWO.toString());
+        AccountInfoUpdateEventDto accountInfoUpdateEventDto = convertToAccountInfoUpdateEventDto(ACCOUNT_INFO_UPDATE_EVENT_DTO_TWO);
+        when(this.apiService.getFormEntryDtoByFormName(88707410L, ProfileAccountConstants.FORM_NAME_BASICS)).thenReturn(null);
+        assertFalse(accountInfoUpdateEventService.sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactChanges));
+
+        when(this.apiService.getFormEntryDtoByFormName(88707410L, ProfileAccountConstants.FORM_NAME_BASICS)).thenReturn(new FormEntryDTO());
+        assertFalse(accountInfoUpdateEventService.sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactChanges));
+
+        //Verify Retry entry saved.
+        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(any(DRCUpdateInfoSyncRetry.class));
+    }
+
+    //Retry entries
+    @DisplayName("When account info updated" +
+            "And Consent is not sync with drc" +
+            "Then verify an entry is added in retry table.")
+    @Test
+    void testRetryEntryIsAddedIfConsentFormIsNotSyncWithDrc() {
+        FormEntryDTO formEntryDTO = initializeFormEntryDTO();
+        formEntryDTO.setExternalId(null);
+
+        when(this.apiService.getFormEntryDtoByFormName(VIBRENT_ID, FORM_NAME_CONSENT)).thenReturn(formEntryDTO);
+        when(drcUpdateInfoSyncRetryRepository.findByVibrentIdAndType(anyLong(), any(DataTypeEnum.class))).thenReturn(null);
+        assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
+
+        ArgumentCaptor<DRCUpdateInfoSyncRetry> captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
+        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
+        DRCUpdateInfoSyncRetry entry = captor.getValue();
+        assertEquals(0, entry.getRetryCount());
+
+
+        Mockito.reset(drcUpdateInfoSyncRetryRepository);
+        captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
+        when(drcUpdateInfoSyncRetryRepository.findByVibrentIdAndType(anyLong(), any(DataTypeEnum.class))).thenReturn(buildDrcUpdateInfoSyncRetryEntry(accountInfoUpdateEventDto));
+
+        assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
+        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
+
+        entry = captor.getValue();
+        assertEquals(0, entry.getRetryCount());
+    }
+
+    @DisplayName("When updated SecondaryContactInfo failed to send to DRC" +
+            "Then verify retry entry is added in the retry table.")
+    @Test
+    void whenSecondaryContactInfoSendToDrcIsFailedThenVerifyRetryEntryAdded() throws Exception {
+        secondaryContactChanges.add(SecondaryContactType.CONTACT_TWO.toString());
+        AccountInfoUpdateEventDto accountInfoUpdateEventDto = convertToAccountInfoUpdateEventDto(ACCOUNT_INFO_UPDATE_EVENT_DTO_TWO);
+        when(this.apiService.getFormEntryDtoByFormName(88707410L, ProfileAccountConstants.FORM_NAME_BASICS)).thenReturn(getForEntryDto());
+        when(drcProperties.getBasicsFormId()).thenReturn(284L);
+        when(this.apiService.getActiveFormVersionByFormId(284L)).thenReturn(getActiveFormVersionDTO());
+        when(this.apiService.getFormVersionById(25097L)).thenReturn(convertToFormVersionDTO(FORM_ENTRY_DTO_SECONDARY_CONTACT_TWO));
+        when(drcProperties.getDrcApiBaseUrl()).thenReturn("https://pmi-drc-api-test.appspot.com");
+        when(drcConfigService.getRetryNum()).thenReturn(1L);
+        when(this.drcBackendProcessorService.sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class))).thenReturn(getDrcErrorResponse(400));
+        assertFalse(accountInfoUpdateEventService.sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactChanges));
+
+        ArgumentCaptor<DRCUpdateInfoSyncRetry> captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
+        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
+        DRCUpdateInfoSyncRetry entry = captor.getValue();
+        assertEquals(1, entry.getRetryCount());
+
+        Mockito.reset(drcUpdateInfoSyncRetryRepository);
+        doThrow(new DrcConnectorException("")).when(drcBackendProcessorService).sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class));
+        assertFalse(accountInfoUpdateEventService.sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactChanges));
+
+        captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
+        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
+        entry = captor.getValue();
+        assertEquals(1, entry.getRetryCount());
+    }
+
+    @DisplayName("When updated user details failed to send to DRC" +
+            "Then verify retry entry is added in the retry table.")
+    @Test
+    void whenUserDetailsSendToDrcIsFailedThenVerifyRetryEntryAdded() throws Exception {
+        when(this.apiService.getFormEntryDtoByFormName(VIBRENT_ID, FORM_NAME_CONSENT)).thenReturn(initializeFormEntryDTO());
+        when(apiService.getActiveFormVersionByFormId(295L)).thenReturn(getActiveConsentFormVersionDTO());
+        when(this.apiService.getFormVersionById(2L)).thenReturn(formVersionDTO());
+        when(drcProperties.getDrcApiBaseUrl()).thenReturn("https://pmi-drc-api-test.appspot.com");
+        when(drcConfigService.getRetryNum()).thenReturn(1L);
+        when(this.drcBackendProcessorService.sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class))).thenReturn(getDrcErrorResponse(400));
+
+        assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
+        ArgumentCaptor<DRCUpdateInfoSyncRetry> captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
+        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
+        DRCUpdateInfoSyncRetry entry = captor.getValue();
+        assertEquals(1, entry.getRetryCount());
+
+        Mockito.reset(drcUpdateInfoSyncRetryRepository);
+        doThrow(new Exception()).when(drcBackendProcessorService).sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class));
+
+        assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
+        captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
+        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
+        entry = captor.getValue();
+        assertEquals(1, entry.getRetryCount());
+
+
     }
 
 
@@ -215,6 +378,17 @@ class AccountInfoUpdateEventServiceImplTest {
         participantDto.setSecondaryContacts(getSecondaryContactDtoList());
 
         accountInfoUpdateEventDto.setParticipant(participantDto);
+    }
+
+    @SneakyThrows
+    private DRCUpdateInfoSyncRetry buildDrcUpdateInfoSyncRetryEntry(AccountInfoUpdateEventDto dto) {
+        var entry = new DRCUpdateInfoSyncRetry();
+        entry.setType(DataTypeEnum.ACCOUNT_UPDATE_DATA);
+        entry.setVibrentId(dto.getVibrentID());
+        entry.setRetryCount(0L);
+        entry.setPayload(JacksonUtil.getMapper().writeValueAsString(dto));
+
+        return entry;
     }
 
     private void initializeUserDTO() {
@@ -337,6 +511,7 @@ class AccountInfoUpdateEventServiceImplTest {
         formEntryDTO.setEntryRecordedTime(1644563733929L);
         formEntryDTO.setUpdatedById(CATI_USER_ID);
         formEntryDTO.setIsConsentProvided(true);
+        formEntryDTO.setExternalId("1235");
         return formEntryDTO;
     }
 
@@ -361,6 +536,7 @@ class AccountInfoUpdateEventServiceImplTest {
         formVersionDTO.setSemanticVersion("SemanticVersion");
         formVersionDTO.setCreatedOn(123L);
         formVersionDTO.setVersionComment("VersionComment");
+
 
         FormModeDTO editMode = new FormModeDTO();
         List<FormPageDTO> formPageDTOS = new ArrayList<>();
@@ -419,6 +595,12 @@ class AccountInfoUpdateEventServiceImplTest {
         return httpResponseWrapper;
     }
 
+
+    public HttpResponseWrapper getDrcErrorResponse(Integer statusCode) {
+        HttpResponseWrapper httpResponseWrapper = new HttpResponseWrapper(statusCode, "Error response");
+        return httpResponseWrapper;
+    }
+
     private List<SecondaryContactDto> getSecondaryContactDtoList() {
         List<SecondaryContactDto> secondaryContactDtoList = new ArrayList<>();
         SecondaryContactDto secondaryContactDto = new SecondaryContactDto();
@@ -462,6 +644,14 @@ class AccountInfoUpdateEventServiceImplTest {
         return activeFormVersionByFormId;
     }
 
+    ActiveFormVersionDTO getActiveConsentFormVersionDTO() {
+        ActiveFormVersionDTO activeFormVersionByFormId = new ActiveFormVersionDTO();
+        activeFormVersionByFormId.setActiveFormVersionId(2L);
+        activeFormVersionByFormId.setFormId(295L);
+        return activeFormVersionByFormId;
+    }
+
+
     FormVersionDTO convertToFormVersionDTO(String resourcePath) throws IOException {
         ClassLoader classLoader = getClass().getClassLoader();
         BufferedInputStream bufferedInputStream = (BufferedInputStream) classLoader.getResource(resourcePath).getContent();
@@ -483,6 +673,22 @@ class AccountInfoUpdateEventServiceImplTest {
         userSSNDTO.setUserId(VIBRENT_ID);
         userSSNDTO.setSsn("222222222");
         return userSSNDTO;
+    }
+
+    FormEntryDTO getForEntryDto(){
+        FormEntryDTO formEntryDTO = new FormEntryDTO();
+        formEntryDTO.setIsConsentProvided(true);
+        formEntryDTO.setFormId(284L);
+        formEntryDTO.setExternalId("123456");
+        return formEntryDTO;
+
+    }
+
+
+    private Participant getDrcParticipant(ConsentWithdrawStatus status) {
+        Participant participant = new Participant();
+        participant.setWithdrawalStatus(status);
+        return participant;
     }
 
 }

@@ -16,6 +16,9 @@ public class DrcProperties {
     @Value("${vibrent.drc.genomics.participantBatch.cron}")
     private String participantBatchProcessingCron;
 
+    @Value("${vibrent.drc.sync.retry.cron}")
+    private String drcSyncRetryCron;
+
     @Value("${vibrent.drc.apiUrl}")
     private String drcApiBaseUrl;
 
