@@ -7,7 +7,6 @@ import com.vibrent.drc.domain.ParticipantGenomicStatusPayload;
 import com.vibrent.drc.domain.SystemProperties;
 import com.vibrent.drc.dto.ExternalApiRequestLog;
 import com.vibrent.drc.dto.GenomicGemResponseDTO;
-import com.vibrent.drc.dto.ParticipantGenomicStatusDTO;
 import com.vibrent.drc.enumeration.ExternalEventType;
 import com.vibrent.drc.enumeration.ExternalGenomicPayloadProcessingStatus;
 import com.vibrent.drc.enumeration.SystemPropertiesEnum;
@@ -35,6 +34,7 @@ import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -140,16 +140,16 @@ public class DRCParticipantGenomicsStatusServiceImpl implements DRCParticipantGe
         return participantGenomicStatusPayloadRepository.save(participantGenomicStatusPayload);
     }
 
-    private void saveExternalParticipantStatusBatches(List<ParticipantGenomicStatusDTO> entireList, int partitionSize, ParticipantGenomicStatusPayload savedEntity) throws JsonProcessingException {
+    private void saveExternalParticipantStatusBatches(List<Map<String, Object>> entireList, int partitionSize, ParticipantGenomicStatusPayload savedEntity) throws JsonProcessingException {
         List<ParticipantGenomicStatusBatch> participantGenomicStatusBatchList = new ArrayList<>();
 
         //divide the entire list into chucks
         final AtomicInteger counter = new AtomicInteger();
-        final Collection<List<ParticipantGenomicStatusDTO>> subLists = entireList.stream().collect(Collectors.groupingBy
+        final Collection<List<Map<String, Object>>> subLists = entireList.stream().collect(Collectors.groupingBy
                 (it -> counter.getAndIncrement() / partitionSize))
                 .values();
 
-        for(List<ParticipantGenomicStatusDTO> collection : subLists){
+        for(List<Map<String, Object>> collection : subLists){
             participantGenomicStatusBatchList.add(buildExternalReportBatch(collection, partitionSize, savedEntity));
         }
 
@@ -159,7 +159,7 @@ public class DRCParticipantGenomicsStatusServiceImpl implements DRCParticipantGe
         }
     }
 
-    private ParticipantGenomicStatusBatch buildExternalReportBatch(List<ParticipantGenomicStatusDTO> participantGenomicStatusDTOList, int partitionSize, ParticipantGenomicStatusPayload savedEntity) throws JsonProcessingException {
+    private ParticipantGenomicStatusBatch buildExternalReportBatch(List<Map<String, Object>> participantGenomicStatusDTOList, int partitionSize, ParticipantGenomicStatusPayload savedEntity) throws JsonProcessingException {
         ParticipantGenomicStatusBatch participantGenomicStatusBatch = new ParticipantGenomicStatusBatch();
         String jsonPayload = participantGenomicsStatusPayloadMapper.mapListOfParticipantGenomicsStatusToJsonString(participantGenomicStatusDTOList);
         participantGenomicStatusBatch.setBatchPayload(jsonPayload);

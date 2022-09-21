@@ -2,11 +2,9 @@ package com.vibrent.drc.messaging.consumer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.vibrent.drc.integration.IntegrationTest;
-import com.vibrent.drc.service.ApiService;
-import com.vibrent.drc.service.DRCSalivaryOrderService;
-import com.vibrent.drc.service.DRCSupplyStatusService;
-import com.vibrent.drc.service.ExternalApiRequestLogsService;
+import com.vibrent.drc.service.*;
 import com.vibrent.drc.util.JacksonUtil;
+import com.vibrent.genotek.vo.OrderInfoDTO;
 import com.vibrent.vxp.workflow.*;
 import com.vibrenthealth.drcutils.service.DRCConfigService;
 import org.junit.Test;
@@ -51,7 +49,7 @@ public class CreateTrackOrderResponseListenerIntegrationTest extends Integration
     private DRCConfigService drcConfigService;
 
     @MockBean
-    private ApiService apiService;
+    private GenotekService genotekService;
 
     @MockBean
     private ExternalApiRequestLogsService externalApiRequestLogsService;
@@ -62,7 +60,7 @@ public class CreateTrackOrderResponseListenerIntegrationTest extends Integration
     @Test
     @DisplayName("When Create track order response event received then verify event get processed. ")
     public void testCreateTrackOrderResponseListener() throws Exception {
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
 
         CreateTrackOrderResponseDto createTrackOrderResponseDto = createTrackOrderResponseDTO();
         createTrackOrderResponseDto.setStatus(StatusEnum.CREATED);
@@ -137,6 +135,14 @@ public class CreateTrackOrderResponseListenerIntegrationTest extends Integration
 
         messageHeaders = new MessageHeaders(headers);
         return messageHeaders;
+    }
+
+    private OrderInfoDTO buildOrderInfoDTO() {
+        OrderInfoDTO orderInfoDTO = new OrderInfoDTO();
+        orderInfoDTO.setOrderType("Salivary Order");
+        orderInfoDTO.setItemCode("4081");
+        orderInfoDTO.setItemName("OGD-500.015");
+        return orderInfoDTO;
     }
 
 }

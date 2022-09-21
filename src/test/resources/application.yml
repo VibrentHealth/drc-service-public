@@ -10,6 +10,8 @@ spring:
       externalApiRequestLogs: event.vrp.externalApiRequestLogs
       vxpResponse: event.vxp.workflow.outbound
       pushParticipant: event.vxp.push.participant
+      fulfillment:
+        response: event.vxp.fulfillment.order.response
   datasource:
     dataSourceClassName: org.h2.jdbcx.JdbcDataSource
     url: jdbc:h2:mem:ehr;DB_CLOSE_DELAY=-1;
@@ -57,4 +59,21 @@ vibrent:
         name: ${BASICS_FORM_NAME:TheBasics}
   drc-service:
     acadiaApiUrl: ${API_SERVER:http://localhost:8080}
+    genotekUrl: ${GENOTEK_HOST_URL:http://localhost:8080}
     caffeineSpec: ${CAFFEINE_CACHE_SPEC:maximumSize=150000}
+    fulfillmentUrl: ${FULFILLMENT_HOST_URL:http://localhost:8080}
+    retryApiCall:
+      retryForHttpStatusCode: ${RETRY_FOR_HTTP_STATUS_CODE:401,403,408,500,503,504,507,509}
+
+externalLog:
+  # default externalLog request/response body max size
+  maxBodySize: ${EXT_LOG_BODY_MAX:128000}
+redis:
+  properties:
+    redisson-ssl-enaled: ${REDIS_SSL_ENABLED:false}
+    redisson-address: ${REDIS_URL:localhost:6379}
+    redisson-is-clustered: ${IS_REDIS_CLUSTERED:false}
+    redisson-cluster-type: ${REDIS_CLUSTER_TYPE:replicated}
+    redisson-config: classpath:config/redisson-ss.yml
+    redisson-replicated-config: classpath:config/redisson-replicated.yml
+    redisson-cluster-config: classpath:config/redisson-cluster.yml

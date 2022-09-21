@@ -68,16 +68,6 @@ class ApiServiceImplTest {
     }
 
     @Test
-    void getSalivaryKitDetails() {
-        when(keycloakDrcInternalCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
-        when(restClientUtil.getRequest(any(), (HttpHeaders) any())).thenReturn(SALIVARY_KIT_DETAILS_API_RESPONSE);
-
-        String deviceDetails = apiService.getDeviceDetails();
-        assertNotNull(deviceDetails);
-        assertEquals(SALIVARY_KIT_DETAILS_API_RESPONSE, deviceDetails);
-    }
-
-    @Test
     void getUserDetails() throws Exception {
         when(keycloakDrcInternalCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
         when(restClientUtil.getRequest(any(), (HttpHeaders) any())).thenReturn(USER_DETAILS_API_RESPONSE);

@@ -6,6 +6,7 @@ import com.vibrent.acadia.web.rest.dto.UserDTO;
 import com.vibrent.drc.enumeration.DRCSupplyMessageStatusType;
 import com.vibrent.drc.exception.BusinessValidationException;
 import com.vibrent.drc.service.ApiService;
+import com.vibrent.drc.service.GenotekService;
 import com.vibrent.vxp.workflow.*;
 import org.hl7.fhir.r4.model.SupplyDelivery;
 import org.hl7.fhir.r4.model.SupplyRequest;
@@ -39,9 +40,12 @@ class FHIRSalivaryConverterUtilityTest {
     @Mock
     private ApiService apiService;
 
+    @Mock
+    private GenotekService genotekService;
+
     @BeforeEach
     void setUp() {
-        fhirSalivaryConverterUtility = new FHIRSalivaryConverterUtility("https://pmi-drc-api-test.appspot.com/rdr/v1", apiService);
+        fhirSalivaryConverterUtility = new FHIRSalivaryConverterUtility("https://pmi-drc-api-test.appspot.com/rdr/v1", apiService, genotekService);
         initializeUserDTO();
     }
 
@@ -50,14 +54,14 @@ class FHIRSalivaryConverterUtilityTest {
         //EXPECT Business validation on missing vxp requests
         MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
         Assert.assertThrows("FHIRSalivaryConverterUtility: supplyRequest cannot convert missing request", BusinessValidationException.class,
-                () -> fhirSalivaryConverterUtility.orderToSupplyRequestFHIRConverter(null, messageHeaderDto, SupplyRequest.SupplyRequestStatus.ACTIVE));
+                () -> fhirSalivaryConverterUtility.orderToSupplyRequestFHIRConverter(null, messageHeaderDto, SupplyRequest.SupplyRequestStatus.ACTIVE, "100L"));
     }
 
     @Test
     public void testOrderToSupplyRequestFHIRConverterMissingHeaderDto() {
         //EXPECT Business validation on missing vxp requests
         Assert.assertThrows("FHIRSalivaryConverterUtility: supplyRequest cannot convert missing request", BusinessValidationException.class,
-                () -> fhirSalivaryConverterUtility.orderToSupplyRequestFHIRConverter(createTrackOrderResponseDTO(), null, SupplyRequest.SupplyRequestStatus.ACTIVE));
+                () -> fhirSalivaryConverterUtility.orderToSupplyRequestFHIRConverter(createTrackOrderResponseDTO(), null, SupplyRequest.SupplyRequestStatus.ACTIVE, "100L"));
     }
 
     @Test

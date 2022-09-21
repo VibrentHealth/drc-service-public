@@ -27,8 +27,9 @@ public interface ParticipantConverter {
     void updateParticipant(ParticipantDto dto, @MappingTarget ParticipantVo vo);
 
 
-    @Mapping(target = "emailAddress", expression = "java(com.vibrent.drc.util.ParticipantDataUtil.getVerifiedContact(dto, com.vibrent.vxp.push.TypeEnum.EMAIL))")
-    @Mapping(target = "verifiedPhoneNumber", expression = "java(com.vibrent.drc.util.ParticipantDataUtil.getVerifiedContact(dto, com.vibrent.vxp.push.TypeEnum.PHONE))")
+    @Mapping(target = "emailAddress", expression = "java(com.vibrent.drc.util.ParticipantDataUtil.getContactByTypeAndVerification(dto, com.vibrent.vxp.push.TypeEnum.EMAIL, Boolean.TRUE))")
+    @Mapping(target = "verifiedPhoneNumber", expression = "java(com.vibrent.drc.util.ParticipantDataUtil.getContactByTypeAndVerification(dto, com.vibrent.vxp.push.TypeEnum.PHONE, Boolean.TRUE))")
+    @Mapping(target = "phoneNumber", expression = "java(com.vibrent.drc.util.ParticipantDataUtil.getContactByTypeAndVerification(dto, com.vibrent.vxp.push.TypeEnum.PHONE, Boolean.FALSE))")
     @Mapping(target = "accountAddress", expression = "java(getAccountAddress(dto))")
     @Mapping(ignore = true, target = "secondaryContacts")
     @Mapping(ignore = true, target = "testUser")
@@ -37,6 +38,7 @@ public interface ParticipantConverter {
 
     @Mapping(ignore = true, target = "emailAddress")
     @Mapping(ignore = true, target = "verifiedPhoneNumber")
+    @Mapping(ignore = true, target = "phoneNumber")
     @Mapping(ignore = true, target = "accountAddress")
     @Mapping(ignore = true, target = "firstName")
     @Mapping(ignore = true, target = "middleInitial")

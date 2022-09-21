@@ -56,19 +56,6 @@ public class ApiServiceImpl implements ApiService {
     }
 
     @Override
-    @Cacheable(SALIVERY_ORDER_DEVICE_CACHE)
-    public String getDeviceDetails() {
-        try {
-            String url = apiUrl + SALIVARY_KIT_DETAILS_API;
-            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url);
-            OAuth2AccessToken accessToken = keycloakDrcInternalCredentialsRestTemplate.getAccessToken();
-            return restClientUtil.getRequest(builder, restClientUtil.addAuthHeader(accessToken.getValue()));
-        } catch (Exception e) {
-            throw new BusinessProcessingException("Failed to fetch Salivary kit details: " + e);
-        }
-    }
-
-    @Override
     public UserDTO getUserDTO(Long vibrentId) {
         if (vibrentId == null || vibrentId <= 0) {
             throw new BusinessProcessingException("Can't fetch User details for vibrentId: " + vibrentId);

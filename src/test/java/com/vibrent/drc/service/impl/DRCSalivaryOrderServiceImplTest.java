@@ -7,11 +7,10 @@ import com.vibrent.drc.dto.ExternalApiRequestLog;
 import com.vibrent.drc.enumeration.ExternalEventSource;
 import com.vibrent.drc.enumeration.ExternalEventType;
 import com.vibrent.drc.enumeration.ExternalServiceType;
+import com.vibrent.drc.exception.BusinessProcessingException;
 import com.vibrent.drc.exception.BusinessValidationException;
-import com.vibrent.drc.service.ApiService;
-import com.vibrent.drc.service.DRCSupplyStatusService;
-import com.vibrent.drc.service.ExternalApiRequestLogsService;
-import com.vibrent.drc.service.OrderTrackingDetailsService;
+import com.vibrent.drc.service.*;
+import com.vibrent.genotek.vo.OrderInfoDTO;
 import com.vibrent.vxp.workflow.*;
 import com.vibrenthealth.drcutils.connector.HttpResponseWrapper;
 import com.vibrenthealth.drcutils.exception.DrcConnectorException;
@@ -29,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
 
+import javax.validation.constraints.AssertTrue;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -62,6 +62,9 @@ public class DRCSalivaryOrderServiceImplTest {
     private ApiService apiService;
 
     @Mock
+    private GenotekService genotekService;
+
+    @Mock
     private DRCConfigService drcConfigService;
 
     @Mock
@@ -89,7 +92,7 @@ public class DRCSalivaryOrderServiceImplTest {
     public void setUp() throws Exception {
         drcBackendProcessorWrapper = new DRCBackendProcessorWrapperImpl(externalApiRequestLogsService, drcBackendProcessorService);
         drcConfigService = new DRCConfigServiceImpl(false, "https://pmi-drc-api-test.appspot.com");
-        fhirSalivaryConverterUtility = new FHIRSalivaryConverterUtility("http://joinallofus.org/fhir/", apiService);
+        fhirSalivaryConverterUtility = new FHIRSalivaryConverterUtility("http://joinallofus.org/fhir/", apiService, genotekService);
         drcSalivaryOrderService = new DRCSalivaryOrderServiceImpl(fhirSalivaryConverterUtility, drcConfigService, drcSupplyStatusService, drcProperties, orderTrackingDetailsService);
 
         //Set Value attributes
@@ -122,7 +125,7 @@ public class DRCSalivaryOrderServiceImplTest {
 
     @Test
     public void testVerifyAndSendSalivaryRequestCreateTrackOrderSendDRC_SupplyRequestCreated() throws Exception {
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
         //EXPECT save and drc call to be made on supplyRequest
         MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
@@ -142,7 +145,7 @@ public class DRCSalivaryOrderServiceImplTest {
 
     @Test
     public void testVerifyAndSendSalivaryRequestCreateTrackOrderSendDRC_SupplyRequestFulfilled() throws Exception {
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
         //EXPECT on Fulfilled workflow supplyRequest has proper values
         MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
@@ -162,7 +165,7 @@ public class DRCSalivaryOrderServiceImplTest {
 
     @Test
     public void testVerifyAndSendSalivaryRequestCreateTrackOrderSendDRC_SupplyRequestShipped() throws Exception {
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
         //EXPECT on Shipped workflow supplyRequest has proper values
         MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
@@ -182,7 +185,7 @@ public class DRCSalivaryOrderServiceImplTest {
 
     @Test
     public void testVerifyAndSendSalivaryRequestCreateTrackOrderSendDRC_SupplyRequestCancelled() throws Exception {
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
         //EXPECT on Cancelled workflow supplyRequest has proper values
         MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
@@ -222,7 +225,7 @@ public class DRCSalivaryOrderServiceImplTest {
     @Test
     public void testVerifyAndSendSalivaryRequestTrackDeliverySendDRC_SupplyDeliveryParticipantShipped() throws Exception {
         when(this.orderTrackingDetailsService.getOrderDetails(testTrackingId)).thenReturn(getParticipantTrackingOrderDetails());
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
         //EXPECT save and drc call to be made on supplyRequest
         MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
@@ -240,9 +243,24 @@ public class DRCSalivaryOrderServiceImplTest {
     }
 
     @Test
+    public void testNullDeviceDetailsAndSalivaryRequestTrackDelivery_SupplyDeliveryParticipantShipped() throws Exception {
+        when(this.orderTrackingDetailsService.getOrderDetails(testTrackingId)).thenReturn(getParticipantTrackingOrderDetails());
+        doThrow(new BusinessProcessingException("DRC request failed")).when(this.genotekService).getDeviceDetails(anyLong());
+        MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
+        TrackDeliveryResponseDto trackDeliveryResponseDto = createTrackDeliveryResponseDto();
+        trackDeliveryResponseDto.setStatus(StatusEnum.IN_TRANSIT);
+
+        var exception = assertThrows(BusinessProcessingException.class, () -> drcSalivaryOrderService.verifyAndSendTrackDeliveryResponse(trackDeliveryResponseDto, messageHeaderDto));
+        assertTrue(exception.getMessage().contains("DRC request failed"));
+        Mockito.verify(drcSupplyStatusService, times(0)).sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList());
+        Mockito.verify(orderTrackingDetailsService, times(0)).save(any(OrderTrackingDetails.class));
+        Mockito.verify(drcSupplyStatusService, times(0)).sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList());
+    }
+
+    @Test
     public void testVerifyAndSendSalivaryRequestTrackDeliverySendDRC_SupplyDeliveryParticipantDelivery() throws Exception {
         when(this.orderTrackingDetailsService.getOrderDetails(testTrackingId)).thenReturn(getParticipantTrackingOrderDetails());
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
         //EXPECT save and drc call to be made on supplyRequest
         MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
@@ -263,7 +281,7 @@ public class DRCSalivaryOrderServiceImplTest {
     @Test
     public void testVerifyAndSendSalivaryRequestTrackDeliverySendDRC_SupplyDeliveryBioBankShipped() throws Exception {
         when(this.orderTrackingDetailsService.getOrderDetails(testTrackingId)).thenReturn(getBiobankTrackingOrderDetails());
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.apiService.getBioBankAddress()).thenReturn(BIOBANK_ADDRESS_API_RESPONSE);
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
         //EXPECT save and drc call to be made on supplyRequest
@@ -284,7 +302,7 @@ public class DRCSalivaryOrderServiceImplTest {
     @Test
     public void testVerifyAndSendSalivaryRequestTrackDeliverySendDRC_SupplyDeliveryBioBankDelivery() throws Exception {
         when(this.orderTrackingDetailsService.getOrderDetails(testTrackingId)).thenReturn(getBiobankTrackingOrderDetails());
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.apiService.getBioBankAddress()).thenReturn(BIOBANK_ADDRESS_API_RESPONSE);
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
         //EXPECT save and drc call to be made on supplyRequest
@@ -312,7 +330,7 @@ public class DRCSalivaryOrderServiceImplTest {
         doThrow(new DrcConnectorException("400 bad request")).when(this.drcBackendProcessorService).sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class));
         when(drcBackendProcessorWrapper.isInitialized()).thenReturn(true);
 
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         //EXPECT save and drc call to be made on supplyRequest
         MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
         CreateTrackOrderResponseDto createTrackOrderResponseDto = createTrackOrderResponseDTO();
@@ -352,7 +370,7 @@ public class DRCSalivaryOrderServiceImplTest {
         when(this.drcBackendProcessorService.sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class))).thenReturn(new HttpResponseWrapper(200, "response"));
         when(drcBackendProcessorWrapper.isInitialized()).thenReturn(true);
 
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         //EXPECT save and drc call to be made on supplyRequest
         MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
         CreateTrackOrderResponseDto createTrackOrderResponseDto = createTrackOrderResponseDTO();
@@ -394,7 +412,7 @@ public class DRCSalivaryOrderServiceImplTest {
         when(drcBackendProcessorWrapper.isInitialized()).thenReturn(true);
 
         when(this.orderTrackingDetailsService.getOrderDetails(testTrackingId)).thenReturn(getBiobankTrackingOrderDetails1());
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.apiService.getBioBankAddress()).thenReturn(BIOBANK_ADDRESS_API_RESPONSE);
 
         //EXPECT save and drc call to be made on supplyRequest
@@ -552,5 +570,13 @@ public class DRCSalivaryOrderServiceImplTest {
     }
     private  HttpResponseWrapper getHttpResponseWrapper(){
         return new HttpResponseWrapper(201,"response");
+    }
+
+    private OrderInfoDTO buildOrderInfoDTO() {
+        OrderInfoDTO orderInfoDTO = new OrderInfoDTO();
+        orderInfoDTO.setOrderType("Salivary Order");
+        orderInfoDTO.setItemCode("4081");
+        orderInfoDTO.setItemName("OGD-500.015");
+        return orderInfoDTO;
     }
 }

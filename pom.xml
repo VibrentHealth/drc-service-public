@@ -26,7 +26,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <java.version>11</java.version>
     <javax.inject.version>1</javax.inject.version>
-    <drc-server.version>1.2.0</drc-server.version>
+    <drc-server.version>1.4.0</drc-server.version>
     <jackson.version>2.10.1</jackson.version>
     <push.version>4.2.563</push.version>
     <oidc-oauth.version>2.3.0-Develop-SNAPSHOT</oidc-oauth.version>
@@ -51,9 +51,16 @@
     <drc-connector.version>0.0.1-develop-12</drc-connector.version>
     <caffeine.version>3.0.3</caffeine.version>
     <micrometer-core.version>1.5.10</micrometer-core.version>
-    <vxp.workflow.version>2.1.2-0-28</vxp.workflow.version>
+    <vxp.workflow.version>2.3.298</vxp.workflow.version>
     <vrp-dto.version>0.0.1-develop-latest</vrp-dto.version>
     <fhir.version>3.8.0</fhir.version>
+    <redisson.version>3.15.3</redisson.version>
+    <retrofit.version>2.7.1</retrofit.version>
+    <retrofit.converter-scalar.version>2.7.2</retrofit.converter-scalar.version>
+    <genotek.client.version>1.0.2-20220803.152445-2</genotek.client.version>
+    <fulfillment.client.version>1.0.12-20220822.091810-3</fulfillment.client.version>
+    <gson-fire.version>1.7.1</gson-fire.version>
+    <retrofit.gson-converter.version>2.7.2</retrofit.gson-converter.version>
     <sonar.coverage.exclusions>
       **/com/vibrent/drc/constants/*,
       **/com/vibrent/drc/converter/*,
@@ -357,6 +364,49 @@
           <artifactId>push</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.redisson</groupId>
+      <artifactId>redisson</artifactId>
+      <version>${redisson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.squareup.retrofit2</groupId>
+      <artifactId>retrofit</artifactId>
+      <version>${retrofit.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.squareup.retrofit2</groupId>
+      <artifactId>converter-scalars</artifactId>
+      <version>${retrofit.converter-scalar.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.gsonfire</groupId>
+      <artifactId>gson-fire</artifactId>
+      <version>${gson-fire.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.squareup.retrofit2</groupId>
+      <artifactId>converter-gson</artifactId>
+      <version>${retrofit.gson-converter.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.vibrent.genotek</groupId>
+      <artifactId>genotek-client</artifactId>
+      <version>${genotek.client.version}</version>
+      <scope>system</scope>
+      <systemPath>${pom.basedir}/lib/genotek-client-${genotek.client.version}.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.vibrent.fulfillment</groupId>
+      <artifactId>fulfillment-client</artifactId>
+      <version>${fulfillment.client.version}</version>
+      <scope>system</scope>
+      <systemPath>${pom.basedir}/lib/fulfillment-client-${fulfillment.client.version}.jar</systemPath>
     </dependency>
   </dependencies>
 

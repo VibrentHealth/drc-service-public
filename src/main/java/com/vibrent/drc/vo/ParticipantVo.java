@@ -15,6 +15,8 @@ public class ParticipantVo implements Serializable {
 
     @JsonProperty("emailAddress")
     private String emailAddress;
+    @JsonProperty("phoneNumber")
+    private String phoneNumber;
     @JsonProperty("verifiedPhoneNumber")
     private String verifiedPhoneNumber;
     @JsonProperty("accountAddress")

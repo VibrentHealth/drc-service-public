@@ -22,6 +22,7 @@ import com.vibrent.vxp.push.*;
 import com.vibrenthealth.drcutils.connector.HttpResponseWrapper;
 import com.vibrenthealth.drcutils.service.DRCRetryService;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,7 @@ import static com.vibrent.drc.util.FHIRConverterUtility.findAllInputFields;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class AccountInfoUpdateEventServiceImpl implements AccountInfoUpdateEventService {
 
     private Map<String, Long> idMap;
@@ -52,23 +54,6 @@ public class AccountInfoUpdateEventServiceImpl implements AccountInfoUpdateEvent
 
     private final DRCRetryService retryService;
     private final FhirContext fhirContext = FhirContext.forDstu2();
-
-    public AccountInfoUpdateEventServiceImpl(ApiService apiService, DRCBackendProcessorWrapper drcBackendProcessorWrapper,
-                                             DrcProperties drcProperties,
-                                             DRCRetryService retryService,
-                                             AccountInfoUpdateEventHelperService accountInfoUpdateEventHelperService,
-                                             FormEntryConverter formEntryConverter,
-                                             DRCParticipantService participantService,
-                                             DRCUpdateInfoSyncRetryRepository drcUpdateInfoSyncRetryRepository) {
-        this.apiService = apiService;
-        this.drcBackendProcessorWrapper = drcBackendProcessorWrapper;
-        this.drcProperties = drcProperties;
-        this.retryService = retryService;
-        this.accountInfoUpdateEventHelperService = accountInfoUpdateEventHelperService;
-        this.formEntryConverter = formEntryConverter;
-        this.participantService = participantService;
-        this.drcUpdateInfoSyncRetryRepository = drcUpdateInfoSyncRetryRepository;
-    }
 
     @Transactional
     @Override
@@ -306,6 +291,7 @@ public class AccountInfoUpdateEventServiceImpl implements AccountInfoUpdateEvent
 
         return dto;
     }
+
 
     private Long getIdByName(String propertyName) {
         return idMap.get(propertyName);

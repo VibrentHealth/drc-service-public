@@ -1,5 +1,8 @@
 package com.vibrent.drc.configuration;
 
+import com.vibrent.fulfillment.api.OrdersApi;
+import com.vibrent.genotek.api.OrderInfoApi;
+import com.vibrent.genotek.roi.support.ApiClient;
 import com.vibrenthealth.drcutils.connector.DRCServiceAccountConnector;
 import com.vibrenthealth.drcutils.service.DRCRetryService;
 import com.vibrenthealth.drcutils.service.impl.DRCBackendProcessorServiceImpl;
@@ -9,8 +12,10 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Scope;
 
 @Configuration
 public class BeanConfiguration {
@@ -61,7 +66,7 @@ public class BeanConfiguration {
     }
 
 
-   @Bean("participantLookupApiInitiatedCounter")
+    @Bean("participantLookupApiInitiatedCounter")
     public Counter participantLookupApiInitiatedCounter() {
         return Counter.builder("participant_lookup_api_call_initiated")
                 .tag("type", "participant_lookup_api_call_initiated")
@@ -102,5 +107,22 @@ public class BeanConfiguration {
                 .register(meterRegistry);
     }
 
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    public OrderInfoApi orderInfoApiBean(String token, String genotekUrl) {
+        ApiClient defaultClient = new ApiClient("bearerAuth");
+        defaultClient.getAdapterBuilder().baseUrl(genotekUrl);
+        defaultClient.setBearerToken(token);
+        return defaultClient.createService(OrderInfoApi.class);
+    }
+
+    @Bean
+    @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+    public OrdersApi ordersApiBean(String token, String fulfillmentUrl) {
+        ApiClient defaultClient = new ApiClient("bearerAuth");
+        defaultClient.getAdapterBuilder().baseUrl(fulfillmentUrl);
+        defaultClient.setBearerToken(token);
+        return defaultClient.createService(OrdersApi.class);
+    }
 
 }

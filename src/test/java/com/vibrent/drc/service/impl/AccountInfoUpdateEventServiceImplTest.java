@@ -113,7 +113,7 @@ class AccountInfoUpdateEventServiceImplTest {
         formEntryConverter = new FormEntryConverter(apiService, drcProperties, formFieldEntryConverter);
         retryService = new DRCRetryServiceImpl(drcConfigService);
         drcBackendProcessorWrapper = new DRCBackendProcessorWrapperImpl(externalApiRequestLogsService, drcBackendProcessorService);
-        accountInfoUpdateEventService = new AccountInfoUpdateEventServiceImpl(apiService, drcBackendProcessorWrapper, drcProperties, retryService, accountInfoUpdateEventHelperService, formEntryConverter, participantService, drcUpdateInfoSyncRetryRepository);
+        accountInfoUpdateEventService = new AccountInfoUpdateEventServiceImpl(apiService, drcBackendProcessorWrapper, drcProperties, accountInfoUpdateEventHelperService, formEntryConverter, participantService, drcUpdateInfoSyncRetryRepository, retryService);
 
         initializeAccountInfoUpdateDto();
         initializeUserDTO();

@@ -10,6 +10,8 @@ spring:
       externalApiRequestLogs: event.vrp.externalApiRequestLogs
       vxpResponse: event.vxp.workflow.outbound
       pushParticipant: event.vxp.push.participant
+      fulfillment:
+        response: event.vxp.fulfillment.order.response
   datasource:
     platform: mysql
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/drc?autoreconnect=true&enabledTLSProtocols=TLSv1,TLSv1.1,TLSv1.2
@@ -86,7 +88,25 @@ vibrent:
 
   drc-service:
     acadiaApiUrl: ${API_SERVER:https://sub-default.qak8s.vibrenthealth.com}
+    genotekUrl: ${GENOTEK_HOST_URL:https://sub-default.qak8s.vibrenthealth.com}/api/v1/
+    fulfillmentUrl: ${FULFILLMENT_HOST_URL:https://sub-default.qak8s.vibrenthealth.com}/api/fulfillment/v1/
     caffeineSpec: ${CAFFEINE_CACHE_SPEC:maximumSize=150000}
+    retryApiCall:
+      retryForHttpStatusCode: ${RETRY_FOR_HTTP_STATUS_CODE:401,403,408,500,503,504,507,509}
+
+externalLog:
+  # default externalLog request/response body max size
+  maxBodySize: ${EXT_LOG_BODY_MAX:128000}
+redis:
+  properties:
+    redisson-ssl-enaled: ${REDIS_SSL_ENABLED:false}
+    redisson-address: ${REDIS_URL:localhost:6379}
+    redisson-is-clustered: ${IS_REDIS_CLUSTERED:false}
+    redisson-cluster-type: ${REDIS_CLUSTER_TYPE:replicated}
+    redisson-config: classpath:config/redisson-ss.yml
+    redisson-replicated-config: classpath:config/redisson-replicated.yml
+    redisson-cluster-config: classpath:config/redisson-cluster.yml
+
 # Metrics related configurations
 management:
   metrics:

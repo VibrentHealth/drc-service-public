@@ -18,6 +18,7 @@ import com.vibrent.acadia.web.rest.dto.helpers.form.enums.SubmitButtonInputType;
 import com.vibrent.acadia.web.rest.dto.helpers.form.fieldValue.*;
 import com.vibrent.acadia.web.rest.dto.helpers.form.subfields.SubFieldModelBase;
 import com.vibrent.acadia.web.rest.dto.helpers.form.subfields.SubFieldTitleModel;
+import com.vibrent.drc.exception.FHIRConverterException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -118,7 +119,7 @@ public class FHIRConverterUtility {
                                                                                 FormVersionDTO formVersionDTO,
                                                                                 String participantId,
                                                                                 String langKey,
-                                                                                boolean setImpersonationInfo) throws Exception {
+                                                                                boolean setImpersonationInfo) throws FHIRConverterException {
         QuestionnaireResponse response = new QuestionnaireResponse();
         // set identifier using form entry id
         String id = formEntryDTO.getId() == null ? System.currentTimeMillis() + "" : formEntryDTO.getId().toString();
@@ -178,7 +179,7 @@ public class FHIRConverterUtility {
         response.setGroup(rootGroup);
 
         // create GroupQuestion under rootGroup
-        FHIRQuestionnaireResponseConverter.addGroupQuestions(rootGroup, formEntryDTO, formVersionDTO, participantId);
+        FHIRQuestionnaireResponseConverter.addGroupQuestions(rootGroup, formEntryDTO, formVersionDTO);
 
 
         log.info("DRC-Service: QuestionnaireResponse is generated for Participant Id - {}, formEntryId - {}, formVersion(Id - {}, formId - {}, Version - {})", participantId, formEntryDTO.getId(), formVersionDTO.getId(), formEntryDTO.getFormId(), formVersionDTO.getVersionId());
@@ -281,7 +282,7 @@ public class FHIRConverterUtility {
     }
 
     private static AnswerFormatEnum getAnswerFormatEnumForSubmit(FieldValueSubmitButtonModel fieldValue) {
-        if (fieldValue.isAsInput()) {
+        if (Boolean.TRUE.equals(fieldValue.isAsInput())) {
             SubmitButtonInputType inputType = fieldValue.getInputType();
             switch (inputType) {
                 case AS_NUMBER:

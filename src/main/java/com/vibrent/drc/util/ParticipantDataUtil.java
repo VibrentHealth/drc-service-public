@@ -35,8 +35,9 @@ public final class ParticipantDataUtil {
             return true;
         }
 
-        return isDifferent(vo.getEmailAddress(), getVerifiedContact(dto, TypeEnum.EMAIL))
-                || isDifferent(vo.getVerifiedPhoneNumber(), getVerifiedContact(dto, TypeEnum.PHONE))
+        return isDifferent(vo.getEmailAddress(), getContactByTypeAndVerification(dto, TypeEnum.EMAIL, Boolean.TRUE))
+                || isDifferent(vo.getVerifiedPhoneNumber(), getContactByTypeAndVerification(dto, TypeEnum.PHONE, Boolean.TRUE))
+                || isDifferent(vo.getPhoneNumber(), getContactByTypeAndVerification(dto, TypeEnum.PHONE, Boolean.FALSE))
                 || isDifferent(vo.getAccountAddress(), getAccountAddress(dto))
                 || isDifferent(vo.getFirstName(), dto.getFirstName())
                 || isDifferent(vo.getMiddleInitial(), dto.getMiddleInitial())
@@ -142,10 +143,10 @@ public final class ParticipantDataUtil {
         return null;
     }
 
-    public static String getVerifiedContact(ParticipantDto dto, TypeEnum type) {
+    public static String getContactByTypeAndVerification(ParticipantDto dto, TypeEnum type, Boolean isVerified) {
         if (dto != null && dto.getContacts() != null) {
             return dto.getContacts().stream()
-                    .filter(contact -> contact.getContactType() == type && Boolean.TRUE.equals(contact.getVerified()))
+                    .filter(contact -> contact.getContactType() == type && isVerified.equals(contact.getVerified()))
                     .map(ContactElementDto::getContact)
                     .filter(Objects::nonNull).findFirst().orElse(null);
         }

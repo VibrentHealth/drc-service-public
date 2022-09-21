@@ -13,6 +13,7 @@ import com.vibrent.vxp.drc.resource.DrcApiController;
 import com.vibrent.vxp.push.DRCExternalEventDto;
 import com.vibrent.vxp.push.ExternalEventSourceEnum;
 import io.micrometer.core.instrument.Counter;
+import lombok.SneakyThrows;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.jupiter.api.BeforeAll;
@@ -116,7 +117,7 @@ public class DrcServiceIntegrationTest extends IntegrationTest {
     @Autowired
     private DrcServiceApiDelegate drcServiceApiDelegate;
 
-    DrcNotificationRequestDTO drcNotificationRequestDTO = new DrcNotificationRequestDTO();
+    DrcNotificationRequestDTO drcNotificationRequestDTO;
 
     @Captor
     private ArgumentCaptor<DRCExternalEventDto> drcExternalEventDtoArgumentCaptor;
@@ -129,14 +130,11 @@ public class DrcServiceIntegrationTest extends IntegrationTest {
     @Before
     public void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(drcApiController).setControllerAdvice(DrcExceptionHandler.class).build();
-        drcNotificationRequestDTO.setEvent(EventTypes.INFORMING_LOOP_STARTED);
-        drcNotificationRequestDTO.setParticipantId("10100");
-        drcNotificationRequestDTO.setMessageBody("{\"module_type\": \"recreational_genetics\",\"decision\": \"yes\"}");
+        drcNotificationRequestDTO = buildDrcNotificationRequestDTO();
 
         ReflectionTestUtils.setField(participantService, "keycloakDrcInternalCredentialsRestTemplate", keycloakDrcInternalCredentialsRestTemplate);
         ReflectionTestUtils.setField(participantService, "restClientUtil", restClientUtil);
         ReflectionTestUtils.setField(drcServiceApiDelegate, "dataSharingMetricsService", dataSharingMetricsService);
-
     }
 
     @WithMockUser(roles = "DRC")
@@ -148,7 +146,7 @@ public class DrcServiceIntegrationTest extends IntegrationTest {
         when(restClientUtil.postRequest(anyString(), any())).thenReturn("{\"results\":[{\"VIBRENT_ID\":67701409,\"EXTERNAL_ID\": \"P10100\",\"TEST_PARTICIPANT\":true}],\"link\":{\"previousPageQuery\":\"/api/userInfo/search?page=1&pageSize=1\",\"nextPageQuery\":\"/api/userInfo/search?page=3&pageSize=1\"},\"total\":1}");
 
         mockMvc.perform(post(POST_EVENT_NOTIFICATION_REQUEST_ENDPOINT).contentType(APPLICATION_JSON_UTF8)
-                .content(JacksonUtil.getMapper().writeValueAsBytes(drcNotificationRequestDTO)))
+                        .content(JacksonUtil.getMapper().writeValueAsBytes(drcNotificationRequestDTO)))
                 .andExpect(status().isOk());
 
         // Verify vxp event is generated
@@ -158,6 +156,18 @@ public class DrcServiceIntegrationTest extends IntegrationTest {
         Mockito.verify(dataSharingMetricsService, Mockito.times(1)).incrementRealTimeApiCallInvokedSuccessfullyCounter();
 
         verifyDrcExternalEventDto("informing_loop_started");
+    }
+
+
+    @WithMockUser(roles = "DRC")
+    @Test
+    @DisplayName("When DRCService request Endpoint invoked  with invalid event type request" +
+            "Then verify error response received")
+    public void whenDrcApiIsInvokedForInvalidEventTypeThenGetSuccessHttpStatus() throws Exception {
+
+        mockMvc.perform(post(POST_EVENT_NOTIFICATION_REQUEST_ENDPOINT).contentType(APPLICATION_JSON_UTF8)
+                        .content(JacksonUtil.getMapper().writeValueAsBytes(buildDrcNotificationRequestDTO())))
+                .andExpect(status().isOk());
     }
 
     @WithMockUser(roles = "DRC")
@@ -254,7 +264,7 @@ public class DrcServiceIntegrationTest extends IntegrationTest {
         drcNotificationRequestDTO.setEventAuthoredTime(OffsetDateTime.now());
 
         mockMvc.perform(post(POST_EVENT_NOTIFICATION_REQUEST_ENDPOINT).contentType(APPLICATION_JSON_UTF8)
-                .content(JacksonUtil.getMapper().writeValueAsBytes(drcNotificationRequestDTO)))
+                .content(buildInvalidEventTypePayload()))
                 .andExpect(status().isBadRequest());
     }
 
@@ -377,5 +387,25 @@ public class DrcServiceIntegrationTest extends IntegrationTest {
         assertNotNull(link.getNextPageQuery());
         assertTrue(link.getPreviousPageQuery().contains("/api/v1/drc/participantLookup?vibrentId=1,2,3&drcId=p1,p2,p3&startDate=2021-07-12T00:00:00&endDate=2021-07-22T00:00:00&page=1&pageSize=1"));
         assertTrue(link.getNextPageQuery().contains("/api/v1/drc/participantLookup?vibrentId=1,2,3&drcId=p1,p2,p3&startDate=2021-07-12T00:00:00&endDate=2021-07-22T00:00:00&page=3&pageSize=1"));
+    }
+
+
+    private DrcNotificationRequestDTO buildDrcNotificationRequestDTO() {
+        return buildDrcNotificationRequestDTO(EventTypes.INFORMING_LOOP_STARTED);
+    }
+
+    private DrcNotificationRequestDTO buildDrcNotificationRequestDTO(EventTypes eventTypes) {
+        DrcNotificationRequestDTO drcNotificationRequestDTO = new DrcNotificationRequestDTO();
+        drcNotificationRequestDTO.setEvent(eventTypes);
+        drcNotificationRequestDTO.setParticipantId("10100");
+        drcNotificationRequestDTO.setMessageBody("{\"module_type\": \"recreational_genetics\",\"decision\": \"yes\"}");
+        return drcNotificationRequestDTO;
+    }
+
+
+    @SneakyThrows
+    private String buildInvalidEventTypePayload() {
+        String payload = JacksonUtil.getMapper().writeValueAsString(buildDrcNotificationRequestDTO(EventTypes.INFORMING_LOOP_STARTED));
+        return payload.replace(EventTypes.INFORMING_LOOP_STARTED.getValue(), "INVALID_TYPE");
     }
 }

@@ -7,13 +7,11 @@ import com.vibrent.acadia.web.rest.dto.form.FormComponentFieldDTO;
 import com.vibrent.acadia.web.rest.dto.form.FormFieldDTO;
 import com.vibrent.acadia.web.rest.dto.form.FormFieldEntryValueDTO;
 import com.vibrent.acadia.web.rest.dto.helpers.form.enums.SubFieldType;
-import com.vibrent.acadia.web.rest.dto.helpers.form.enums.SubmitButtonInputType;
 import com.vibrent.acadia.web.rest.dto.helpers.form.fieldValue.FieldValueRadioOptionsModel;
 import com.vibrent.acadia.web.rest.dto.helpers.form.fieldValue.FieldValueRadioSelectorModel;
 import com.vibrent.acadia.web.rest.dto.helpers.form.fieldValue.OptionsValue;
 import com.vibrent.acadia.web.rest.dto.helpers.form.insights.InsightsConfigModel;
 import com.vibrent.acadia.web.rest.dto.helpers.form.subfields.SubFieldRadioOptionModel;
-import com.vibrent.drc.constants.ProfileAccountConstants;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,7 +19,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import static com.vibrent.drc.constants.ProfileAccountConstants.FORM_NAME_CONSENT;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,13 +35,13 @@ class FHIRQuestionnaireResponseConverterTest {
     @Test
     void testCreateAnswerValue() throws Exception {
         FormComponentFieldDTO formComponentFieldDTO1 = getFormComponentFieldDTO();
-        IDatatype iDatatype = FHIRQuestionnaireResponseConverter.createAnswerValue(formComponentFieldDTO1, getFormFieldEntryValueDTO("5241", 5241d), EXTERNAL_ID, FORM_NAME_CONSENT);
+        IDatatype iDatatype = FHIRQuestionnaireResponseConverter.createAnswerValue(formComponentFieldDTO1, getFormFieldEntryValueDTO("5241", 5241d));
         assertNotNull(iDatatype);
     }
 
     @Test
     void testValueToDataType() throws Exception {
-        IDatatype id= FHIRQuestionnaireResponseConverter.valueToDataType(getFormFieldEntryValueDTO("12",12d),"codingDisplay",EXTERNAL_ID, FORM_NAME_CONSENT);
+        IDatatype id= FHIRQuestionnaireResponseConverter.valueToIDataType(getFormFieldEntryValueDTO("12",12d),"codingDisplay");
         assertNotNull(id);
 
         FormFieldEntryValueDTO formFieldEntryValueDTO = getFormFieldEntryValueDTO("56", 56d);

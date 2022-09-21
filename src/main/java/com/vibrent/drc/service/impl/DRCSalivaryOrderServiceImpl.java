@@ -124,7 +124,7 @@ public class DRCSalivaryOrderServiceImpl implements DRCSalivaryOrderService {
         supplyRequestStatus = SHIPPED.equals(statusType) ? SupplyRequest.SupplyRequestStatus.COMPLETED : supplyRequestStatus;
 
         //convert objects to FHIR message
-        SupplyRequest supplyRequest = fhirSalivaryConverterUtility.orderToSupplyRequestFHIRConverter(createTrackOrderResponseDto, messageHeaderDto, supplyRequestStatus);
+        SupplyRequest supplyRequest = fhirSalivaryConverterUtility.orderToSupplyRequestFHIRConverter(createTrackOrderResponseDto, messageHeaderDto, supplyRequestStatus,orderId);
         supplyRequest.setAuthoredOn(new Date(createTrackOrderResponseDto.getDateTime()));
         supplyFHIRMessage = fhirContext.newJsonParser().setPrettyPrint(false).setSuppressNarratives(false).setSummaryMode(false).encodeResourceToString(supplyRequest);
 

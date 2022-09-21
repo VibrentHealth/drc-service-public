@@ -16,7 +16,6 @@ import lombok.SneakyThrows;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-import org.junit.jupiter.api.DisplayName;
 import org.mockito.Mock;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
@@ -28,7 +27,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
 
 @EnableAutoConfiguration(exclude = {FlywayAutoConfiguration.class})
 @Category(IntegrationTest.class)
@@ -84,8 +82,8 @@ public class AccountInfoUpdateEventHelperServiceImplTest extends IntegrationTest
         assertEquals(participantDto.getFirstName(), participantVo.getFirstName());
         assertEquals(participantDto.getLastName(), participantVo.getLastName());
         assertEquals(participantDto.getMiddleInitial(), participantVo.getMiddleInitial());
-        assertEquals(ParticipantDataUtil.getVerifiedContact(participantDto, TypeEnum.EMAIL), participantVo.getEmailAddress());
-        assertEquals(ParticipantDataUtil.getVerifiedContact(participantDto, TypeEnum.PHONE), participantVo.getVerifiedPhoneNumber());
+        assertEquals(ParticipantDataUtil.getContactByTypeAndVerification(participantDto, TypeEnum.EMAIL, Boolean.TRUE), participantVo.getEmailAddress());
+        assertEquals(ParticipantDataUtil.getContactByTypeAndVerification(participantDto, TypeEnum.PHONE, Boolean.TRUE), participantVo.getVerifiedPhoneNumber());
         verifyAddress(ParticipantDataUtil.getAccountAddress(participantDto), participantVo.getAccountAddress());
 
         //Verify database is not updated if there is no change in user Account information.

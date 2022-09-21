@@ -3,7 +3,6 @@ package com.vibrent.drc.service.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.vibrent.drc.constants.DrcConstant;
-import com.vibrent.drc.dto.ParticipantGenomicStatusDTO;
 import com.vibrent.drc.service.DataSharingMetricsService;
 import com.vibrent.drc.service.ParticipantGenomicsStatusPayloadMapper;
 import com.vibrent.drc.service.ParticipantService;
@@ -32,7 +31,7 @@ public class ParticipantGenomicsStatusPayloadMapperImpl implements ParticipantGe
 
 
     @Override
-    public String mapListOfParticipantGenomicsStatusToJsonString(List<ParticipantGenomicStatusDTO> templateFields) throws JsonProcessingException {
+    public String mapListOfParticipantGenomicsStatusToJsonString(List<Map<String, Object>> templateFields) throws JsonProcessingException {
         if (templateFields != null) {
             return JacksonUtil.getMapper().writeValueAsString(templateFields);
         } else {

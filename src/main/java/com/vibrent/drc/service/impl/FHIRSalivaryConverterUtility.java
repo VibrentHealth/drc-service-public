@@ -9,6 +9,8 @@ import com.vibrent.drc.constants.SupplyConstants;
 import com.vibrent.drc.enumeration.DRCSupplyMessageStatusType;
 import com.vibrent.drc.exception.BusinessValidationException;
 import com.vibrent.drc.service.ApiService;
+import com.vibrent.drc.service.GenotekService;
+import com.vibrent.genotek.vo.OrderInfoDTO;
 import com.vibrent.vxp.workflow.*;
 import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.*;
@@ -43,20 +45,25 @@ public class FHIRSalivaryConverterUtility {
 
     private final String fhirBaseUrl;
     private final ApiService apiService;
+    private final GenotekService genotekService;
 
     public FHIRSalivaryConverterUtility(@Value("${fhir.url.resourceurl:http://joinallofus.org/fhir/}") String fhirBaseUrl,
-                                        ApiService apiService) {
+                                        ApiService apiService, GenotekService genotekService) {
         this.fhirBaseUrl = fhirBaseUrl;
         this.apiService = apiService;
+        this.genotekService = genotekService;
     }
 
-    public SupplyRequest orderToSupplyRequestFHIRConverter(CreateTrackOrderResponseDto createTrackOrderResponseDto, MessageHeaderDto messageHeaderDto, SupplyRequest.SupplyRequestStatus status) {
+    public SupplyRequest orderToSupplyRequestFHIRConverter(CreateTrackOrderResponseDto createTrackOrderResponseDto, MessageHeaderDto messageHeaderDto, SupplyRequest.SupplyRequestStatus status, String orderId) {
         if (createTrackOrderResponseDto == null || messageHeaderDto == null) {
             throw new BusinessValidationException("FHIRSalivaryConverterUtility: supplyRequest cannot convert missing request");
         }
         if (messageHeaderDto.getVxpWorkflowName() == null || !messageHeaderDto.getVxpWorkflowName().toValue().equals(SALIVARY_KIT_ORDER)) {
             throw new BusinessValidationException("FHIRSalivaryConverterUtility: supplyRequest incorrect workflow name for order type");
         }
+
+        //Get orderInfo from genotek
+        var orderInfoValue = getOrderInfo(Long.valueOf(orderId));
 
         //Create SupplyRequestOrder model
         //Every Resource requires text narrative required for conversion
@@ -68,7 +75,7 @@ public class FHIRSalivaryConverterUtility {
 
         //creating contained resources
         supplyRequest.addContained(createOrganization(ORGANIZATION_NAME));
-        supplyRequest.addContained(createDevice());
+        supplyRequest.addContained(createDevice(orderInfoValue));
         supplyRequest.addContained(createPatient(createTrackOrderResponseDto.getParticipant()));
 
         // Add Identifier for supplyRequest
@@ -82,7 +89,7 @@ public class FHIRSalivaryConverterUtility {
         }
         //add fulfillmentStatus and Order Type
         supplyRequest.addExtension(createExtension(createTrackOrderResponseDto.getStatus() == null ? null : new StringType(createTrackOrderResponseDto.getStatus().name()), FULFILLMENT_STATUS));
-        supplyRequest.addExtension(createExtension(new StringType(SALIVARY_ORDER), ORDER_TYPE));
+        supplyRequest.addExtension(createExtension(new StringType(orderInfoValue.getOrderType()), ORDER_TYPE));
 
         // Add References
         addSupplyRequestReferences(supplyRequest, createTrackOrderResponseDto);
@@ -100,6 +107,9 @@ public class FHIRSalivaryConverterUtility {
             throw new BusinessValidationException("FHIRSalivaryConverterUtility: supplyDelivery incorrect workflow name for order type");
         }
 
+        //Get orderInfo from genotek
+        var orderInfoValue = getOrderInfo(Long.valueOf(orderIdentifierDto.getId()));
+
         SupplyDelivery supplyDelivery = new SupplyDelivery();
         supplyDelivery.setText(createDefaultNarrative());
 
@@ -108,7 +118,7 @@ public class FHIRSalivaryConverterUtility {
 
         // creating contained resources
         supplyDelivery.addContained(createOrganization(ORGANIZATION_NAME));
-        supplyDelivery.addContained(createDevice());
+        supplyDelivery.addContained(createDevice(orderInfoValue));
 
         //Choose location based on status
         supplyDelivery.addContained(createLocation(trackDeliveryResponseDto, statusType));
@@ -121,7 +131,7 @@ public class FHIRSalivaryConverterUtility {
         supplyDelivery.addExtension(createExtension(new StringType(trackDeliveryResponseDto.getStatus().name()), SupplyConstants.TRACKING_STATUS_URL));
         supplyDelivery.addExtension(createExtension(expectedDeliveryDate == null ? null
                 : new DateTimeType(new Date(expectedDeliveryDate), TemporalPrecisionEnum.SECOND), SupplyConstants.EXPECTED_DELIVERY_DATE_URL));
-        supplyDelivery.addExtension(createExtension(new StringType(SALIVARY_ORDER), SupplyConstants.ORDER_TYPE));
+        supplyDelivery.addExtension(createExtension(new StringType(orderInfoValue.getOrderType()), SupplyConstants.ORDER_TYPE));
         supplyDelivery.addExtension(createExtension(new StringType(trackDeliveryResponseDto.getProvider().name()), SupplyConstants.CARRIER_URL));
 
 
@@ -142,6 +152,10 @@ public class FHIRSalivaryConverterUtility {
                 : new DateTimeType(new Date(trackDeliveryResponseDto.getDateTime()), TemporalPrecisionEnum.SECOND));
 
         return supplyDelivery;
+    }
+
+    private OrderInfoDTO getOrderInfo(Long orderId) {
+        return  this.genotekService.getDeviceDetails(orderId);
     }
 
     public void setParticipantAddress(ParticipantDto participantDto) {
@@ -233,20 +247,18 @@ public class FHIRSalivaryConverterUtility {
      *
      * @return device
      */
-    private Device createDevice() {
+    private Device createDevice(OrderInfoDTO optionalDevice) {
         Device device = new Device();
         //text required for conversion
         device.setText(createDefaultNarrative());
         Identifier sku = new Identifier();
         sku.setSystem(fhirBaseUrl + SKU);
-        String optionalDevice = this.apiService.getDeviceDetails();
         try {
-            JSONObject json = new JSONObject(optionalDevice);
-            sku.setValue(String.valueOf(json.getLong("SKU")));
+            sku.setValue(optionalDevice.getItemCode());
             device.addIdentifier(sku);
             List<Device.DeviceDeviceNameComponent> deviceName = new ArrayList<>();
             Device.DeviceDeviceNameComponent deviceDeviceNameComponent = new Device.DeviceDeviceNameComponent();
-            deviceDeviceNameComponent.setName(json.getString("name"));
+            deviceDeviceNameComponent.setName(optionalDevice.getItemName());
             deviceDeviceNameComponent.setType(Device.DeviceNameType.MANUFACTURERNAME);
             deviceName.add(deviceDeviceNameComponent);
             device.setDeviceName(deviceName);

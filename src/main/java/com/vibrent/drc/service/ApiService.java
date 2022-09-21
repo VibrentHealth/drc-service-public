@@ -16,11 +16,6 @@ public interface ApiService {
     String getBioBankAddress();
 
     /**
-     * This method fetch device details from API service.
-     */
-    String getDeviceDetails();
-
-    /**
      * Get User Details
      * @return
      */

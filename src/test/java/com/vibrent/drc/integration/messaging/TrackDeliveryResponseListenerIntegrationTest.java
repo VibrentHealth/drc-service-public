@@ -6,6 +6,7 @@ import com.vibrent.drc.integration.IntegrationTest;
 import com.vibrent.drc.messaging.consumer.TrackDeliveryResponseListener;
 import com.vibrent.drc.service.*;
 import com.vibrent.drc.util.JacksonUtil;
+import com.vibrent.genotek.vo.OrderInfoDTO;
 import com.vibrent.vxp.workflow.*;
 import com.vibrenthealth.drcutils.connector.HttpResponseWrapper;
 import com.vibrenthealth.drcutils.service.DRCConfigService;
@@ -61,6 +62,9 @@ public class TrackDeliveryResponseListenerIntegrationTest extends IntegrationTes
     private ApiService apiService;
 
     @MockBean
+    private GenotekService genotekService;
+
+    @MockBean
     private OrderTrackingDetailsService orderTrackingDetailsService;
 
     @MockBean
@@ -73,7 +77,7 @@ public class TrackDeliveryResponseListenerIntegrationTest extends IntegrationTes
     @DisplayName("When Track Delivery response event received for participant shipped then verify event get processed and send to DRC")
     public void testListenWhenSupplyDeliveryParticipantShipped() throws Exception {
         when(this.orderTrackingDetailsService.getOrderDetails(testTrackingId)).thenReturn(getParticipantTrackingOrderDetails());
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
 
         TrackDeliveryResponseDto trackDeliveryResponseDto = createTrackDeliveryResponseDto();
@@ -96,7 +100,7 @@ public class TrackDeliveryResponseListenerIntegrationTest extends IntegrationTes
     @DisplayName("When Track Delivery response event for participant delivery received then verify event get processed and send to DRC")
     public void testListenWhenSupplyDeliveryParticipantDelivery() throws Exception {
         when(this.orderTrackingDetailsService.getOrderDetails(testTrackingId)).thenReturn(getParticipantTrackingOrderDetails());
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
 
         TrackDeliveryResponseDto trackDeliveryResponseDto = createTrackDeliveryResponseDto();
@@ -121,7 +125,7 @@ public class TrackDeliveryResponseListenerIntegrationTest extends IntegrationTes
     @DisplayName("When Track Delivery response event for biobank shipped received then verify event get processed and send to DRC")
     public void testListenWhenSupplyDeliveryBioBankShipped() throws Exception {
         when(this.orderTrackingDetailsService.getOrderDetails(testTrackingId)).thenReturn(getBiobankTrackingOrderDetails());
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.apiService.getBioBankAddress()).thenReturn(BIOBANK_ADDRESS_API_RESPONSE);
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
 
@@ -146,7 +150,7 @@ public class TrackDeliveryResponseListenerIntegrationTest extends IntegrationTes
     @DisplayName("When Track Delivery response event for biobank delivery received then verify event get processed and send to DRC")
     public void testListenWhenSupplyDeliveryBioBankDelivery() throws Exception {
         when(this.orderTrackingDetailsService.getOrderDetails(testTrackingId)).thenReturn(getBiobankTrackingOrderDetails());
-        when(this.apiService.getDeviceDetails()).thenReturn("{\"SKU\": 4081,\"name\": \"OGD-500.015\",\"type\": \"manufacturer-name\",\"display\": \"Oragene.Dx self-collection kit\"}");
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
         when(this.apiService.getBioBankAddress()).thenReturn(BIOBANK_ADDRESS_API_RESPONSE);
         when(this.drcSupplyStatusService.sendSupplyStatus(fhirMessage.capture(), anyLong(), anyString(), any(RequestMethod.class), anyString(), anyString(), anyList())).thenReturn(getHttpResponseWrapper());
 
@@ -253,4 +257,11 @@ public class TrackDeliveryResponseListenerIntegrationTest extends IntegrationTes
         return new HttpResponseWrapper(201,"response");
     }
 
+    private OrderInfoDTO buildOrderInfoDTO() {
+        OrderInfoDTO orderInfoDTO = new OrderInfoDTO();
+        orderInfoDTO.setOrderType("Salivary Order");
+        orderInfoDTO.setItemCode("4081");
+        orderInfoDTO.setItemName("OGD-500.015");
+        return orderInfoDTO;
+    }
 }

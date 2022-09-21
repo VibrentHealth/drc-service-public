@@ -33,6 +33,7 @@ public class KafkaConsumerConfig {
 
     private static final String DRC_TRACK_ORDER_RESPONSE_LISTENER_GROUP_ID = "drcCreateTrackOrderResponseListener";
     private static final String DRC_ACCOUNT_INFO_UPDATE_LISTENER_GROUP_ID = "drcAccountInfoUpdateEventListener";
+    private static final String FULFILLMENT_ORDER_RESPONSE_LISTENER_GROUP_ID = "fulfillmentOrderResponseListener";
 
     private Environment environment;
 
@@ -132,6 +133,36 @@ public class KafkaConsumerConfig {
 
             if (canDiscardRecord) {
                 log.debug("Drc-Service: Discarding the Non ACCOUNT_INFORMATION_UPDATE. Request Type: {}", messageSpec);
+            }
+
+            return canDiscardRecord;
+        });
+        return factory;
+    }
+
+    @Bean
+    public ConsumerFactory<String, byte[]> consumerFactoryFulfillmentOrderResponseListener() {
+        Map<String, Object> configProps = this.getConfigProps(FULFILLMENT_ORDER_RESPONSE_LISTENER_GROUP_ID);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
+        configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, KafkaConstants.EARLIEST);
+        return new DefaultKafkaConsumerFactory<>(configProps, new StringDeserializer(), new ByteArrayDeserializer());
+    }
+
+    @Bean
+    ConcurrentKafkaListenerContainerFactory<String, byte[]> kafkaListenerContainerFactoryFulfillmentOrderResponseListener() {
+        ConcurrentKafkaListenerContainerFactory<String, byte[]> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactoryFulfillmentOrderResponseListener());
+        factory.setConcurrency(Integer.valueOf(Objects.requireNonNull(environment.getProperty(DEFAULT_CONCURRENCY))));
+        factory.getContainerProperties().setPollTimeout(KafkaConstants.POLL_TIMEOUT);
+        factory.setRecordFilterStrategy(consumerRecord -> {
+            String messageSpec = extractHeader(consumerRecord.headers(), KafkaConstants.KAFKA_HEADER_MESSAGE_SPEC);
+
+            //discard the Record if MessageSpecification is not equal to FULFILLMENT_RESPONSE
+            final boolean canDiscardRecord = null == messageSpec
+                    || !MessageSpecificationEnum.FULFILLMENT_RESPONSE.toString().equals(messageSpec);
+
+            if (canDiscardRecord) {
+                log.debug("Drc-Service: Discarding the Non FULFILLMENT_RESPONSE. Request Type: {}", messageSpec);
             }
 
             return canDiscardRecord;

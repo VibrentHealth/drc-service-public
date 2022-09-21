@@ -333,8 +333,9 @@ class ParticipantDataUtilTest {
         participantDto.getContacts().stream().filter(contactElementDto -> contactElementDto.getContactType() == TypeEnum.PHONE)
                 .forEach(contactElementDto -> contactElementDto.setContact(null));
 
-        assertNotNull(ParticipantDataUtil.getVerifiedContact(participantDto, TypeEnum.EMAIL));
-        assertNull(ParticipantDataUtil.getVerifiedContact(participantDto, TypeEnum.PHONE));
+        assertNotNull(ParticipantDataUtil.getContactByTypeAndVerification(participantDto, TypeEnum.EMAIL, Boolean.TRUE));
+        assertNull(ParticipantDataUtil.getContactByTypeAndVerification(participantDto, TypeEnum.PHONE, Boolean.TRUE));
+        assertNull(ParticipantDataUtil.getContactByTypeAndVerification(participantDto, TypeEnum.PHONE, Boolean.FALSE));
     }
 
     @Test
@@ -366,7 +367,7 @@ class ParticipantDataUtilTest {
     }
 
     private ParticipantDto buildParticipantDto() {
-        var contactDtos = Arrays.asList(buildContactDto(MAIL_ID, TypeEnum.EMAIL, true), buildContactDto(PHONE_NUMBER, TypeEnum.PHONE, true));
+        var contactDtos = Arrays.asList(buildContactDto(MAIL_ID, TypeEnum.EMAIL, true), buildContactDto(PHONE_NUMBER, TypeEnum.PHONE, true), buildContactDto(PHONE_NUMBER, TypeEnum.PHONE, false));
         List<AddressElementDto> address = Arrays.asList(buildAddressDto(AddressTypeEnum.ACCOUNT_ADDRESS), buildAddressDto(AddressTypeEnum.MAILING_ADDRESS));
         List<SecondaryContactDto> secondaryContactDtos = Arrays.asList(buildSecondaryContactDto(SecondaryContactType.CONTACT_ONE), buildSecondaryContactDto(SecondaryContactType.CONTACT_TWO));
         return buildParticipantDtoWithAddress(contactDtos, address, secondaryContactDtos);

@@ -13,6 +13,7 @@ import com.vibrent.acadia.web.rest.dto.helpers.form.enums.SubFieldType;
 import com.vibrent.acadia.web.rest.dto.helpers.form.fieldValue.FieldValueCommonSelectionFieldModel;
 import com.vibrent.acadia.web.rest.dto.helpers.form.fieldValue.OptionsValue;
 import com.vibrent.acadia.web.rest.dto.helpers.form.subfields.*;
+import com.vibrent.drc.exception.FHIRConverterException;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.validation.constraints.NotNull;
@@ -53,8 +54,7 @@ class FHIRQuestionnaireResponseConverter {
         return rootGroup;
     }
 
-    static void addGroupQuestions(QuestionnaireResponse.Group rootGroup, FormEntryDTO formEntryDTO, FormVersionDTO formVersionDTO,
-                                  String participantId) throws Exception {
+    static void addGroupQuestions(QuestionnaireResponse.Group rootGroup, FormEntryDTO formEntryDTO, FormVersionDTO formVersionDTO) throws FHIRConverterException {
         List<FormComponentFieldDTO> allInputFields = FHIRConverterUtility.findAllInputFields(formVersionDTO.getEditMode());
         Map<Long, FormComponentFieldDTO> inputFieldMap = convertListToMap(allInputFields);
 
@@ -66,22 +66,26 @@ class FHIRQuestionnaireResponseConverter {
             if (fieldEntryDTO.getFormFieldId() != null) {
                 FormComponentFieldDTO formComponentFieldDTO = inputFieldMap.get(fieldEntryDTO.getFormFieldId());
                 if (formComponentFieldDTO == null) {
-                    throw new Exception("Can't find matching field by form field id : " + fieldEntryDTO.getFormFieldId());
+                    throw new FHIRConverterException("Can't find matching field by form field id : " + fieldEntryDTO.getFormFieldId());
                 }
                 if (!(formComponentFieldDTO.getName().isBlank()) && formComponentFieldDTO.getName()
                         .startsWith(FHIRConverterUtility.IGNORE_QUESTION_IF_STARTS_WITH)) {
                     continue;
                 }
-                QuestionnaireResponse.GroupQuestion question = createQuestion(fieldEntryDTO, formComponentFieldDTO, participantId, formVersionDTO.getName());
+                QuestionnaireResponse.GroupQuestion question = createQuestion(fieldEntryDTO, formComponentFieldDTO);
 
                 if (question == null) {
-                    throw new Exception("Can't create QuestionnaireResponse.GroupQuestion from : " + formEntryDTO);
+                    throw new FHIRConverterException("Can't create QuestionnaireResponse.GroupQuestion from : " + formEntryDTO);
                 }
                 rootGroup.addQuestion(question);
             }
         }
 
         // process skipped question here
+        processSkippedQuestions(rootGroup, formEntryDTO, formVersionDTO, inputFieldMap);
+    }
+
+    private static void processSkippedQuestions(QuestionnaireResponse.Group rootGroup, FormEntryDTO formEntryDTO, FormVersionDTO formVersionDTO, Map<Long, FormComponentFieldDTO> inputFieldMap) {
         List<Long> skippedQuestionFieldIds = findSkippedQuestionIds(formEntryDTO, formVersionDTO);
 
         for (Long fieldId : skippedQuestionFieldIds) {
@@ -254,8 +258,7 @@ class FHIRQuestionnaireResponseConverter {
      * @param formComponentFieldDTO the original form component field
      * @return QuestionnaireResponse.GroupQuestion object based on field entry object
      */
-    private static QuestionnaireResponse.GroupQuestion createQuestion(FormFieldEntryDTO formFieldEntry, FormComponentFieldDTO formComponentFieldDTO, String participantId,
-                                                                      String formName) throws Exception {
+    private static QuestionnaireResponse.GroupQuestion createQuestion(FormFieldEntryDTO formFieldEntry, FormComponentFieldDTO formComponentFieldDTO) throws FHIRConverterException {
         AnswerFormatEnum type = FHIRConverterUtility.getAnswerFormatEnum(formComponentFieldDTO);
         if (type == null)
             return null; // not a valid type for creating questions
@@ -266,7 +269,7 @@ class FHIRQuestionnaireResponseConverter {
         for (FormFieldEntryValueDTO formFieldEntryValue : formFieldEntryValues) {
             QuestionnaireResponse.GroupQuestionAnswer answer = question.addAnswer();
 
-            IDatatype value = createAnswerValue(formComponentFieldDTO, formFieldEntryValue, participantId, formName);
+            IDatatype value = createAnswerValue(formComponentFieldDTO, formFieldEntryValue);
 
             answer.setValue(value);
         }
@@ -284,7 +287,7 @@ class FHIRQuestionnaireResponseConverter {
      * @param formFieldEntryValue   one entry value
      * @return an Answer Value object
      */
-    static IDatatype createAnswerValue(FormComponentFieldDTO formComponentFieldDTO, FormFieldEntryValueDTO formFieldEntryValue, String participantId, String formName) throws Exception {
+    static IDatatype createAnswerValue(FormComponentFieldDTO formComponentFieldDTO, FormFieldEntryValueDTO formFieldEntryValue) throws FHIRConverterException {
         IDatatype dataValue = null;
 
         FormComponentFieldType fieldType = formComponentFieldDTO.getType();
@@ -306,14 +309,14 @@ class FHIRQuestionnaireResponseConverter {
             case MULTI_SELECTOR:
             case IMAGE_CONTAINER:
             case MATRIX_QUESTION:
-                dataValue = valueToDataType(formFieldEntryValue, findDisplayForValue(formComponentFieldDTO, formFieldEntryValue), participantId, formName);
+                dataValue = valueToIDataType(formFieldEntryValue, findDisplayForValue(formComponentFieldDTO, formFieldEntryValue));
                 break;
             case SLIDER:
                 dataValue = valueToDataType(formFieldEntryValue, findDisplayForValue(formComponentFieldDTO, formFieldEntryValue));
                 break;
             default:
                 // rest are normal values, we can determine it based on the value stored in entry value
-                dataValue = valueToDataType(formFieldEntryValue, null, participantId, formName);
+                dataValue = valueToIDataType(formFieldEntryValue, null);
                 break;
         }
 
@@ -453,8 +456,7 @@ class FHIRQuestionnaireResponseConverter {
      * @param codingDisplay       display value for the answer code, if this is null, then the answer is not a code
      * @return iDataType object
      */
-    static IDatatype valueToDataType(FormFieldEntryValueDTO formFieldEntryValue, String codingDisplay, String participantId,
-                                     String formName) throws Exception {
+    static IDatatype valueToIDataType(FormFieldEntryValueDTO formFieldEntryValue, String codingDisplay) throws FHIRConverterException {
         IDatatype dataValue = null;
         if (formFieldEntryValue.getValueAsNumber() != null) {
             Double valueAsNumber = formFieldEntryValue.getValueAsNumber();
@@ -493,11 +495,11 @@ class FHIRQuestionnaireResponseConverter {
     }
 
     static IDatatype valueToDataType(FormFieldEntryValueDTO formFieldEntryValue, String displayValue)
-            throws Exception {
-        if (displayValue != null && isNAValue(displayValue)) {
+            throws FHIRConverterException {
+        if (isNAValue(displayValue)) {
             return new CodingDt(FHIRConverterUtility.SYSTEM_PPI, SKIPPED_VALUE);
         } else {
-            return valueToDataType(formFieldEntryValue, displayValue, null, null);
+            return valueToIDataType(formFieldEntryValue, displayValue);
         }
     }
 
