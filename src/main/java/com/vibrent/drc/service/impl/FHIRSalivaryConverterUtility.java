@@ -10,6 +10,7 @@ import com.vibrent.drc.enumeration.DRCSupplyMessageStatusType;
 import com.vibrent.drc.exception.BusinessValidationException;
 import com.vibrent.drc.service.ApiService;
 import com.vibrent.drc.service.GenotekService;
+import com.vibrent.fulfillment.dto.TrackingDetailsDTO;
 import com.vibrent.genotek.vo.OrderInfoDTO;
 import com.vibrent.vxp.workflow.*;
 import lombok.extern.slf4j.Slf4j;
@@ -95,6 +96,103 @@ public class FHIRSalivaryConverterUtility {
         addSupplyRequestReferences(supplyRequest, createTrackOrderResponseDto);
 
         return supplyRequest;
+    }
+
+    public SupplyRequest fulfillmentOrderToSupplyRequestFHIRConverter(FulfillmentResponseDto fulfillmentResponseDto, MessageHeaderDto messageHeaderDto, SupplyRequest.SupplyRequestStatus status, String orderId, ParticipantDto participantDto) {
+        if (fulfillmentResponseDto == null || messageHeaderDto == null) {
+            throw new BusinessValidationException("FHIRSalivaryConverterUtility: supplyRequest cannot convert missing request");
+        }
+        if (messageHeaderDto.getVxpWorkflowName() == null || !WorkflowNameEnum.FULFILLMENT_KIT_ORDER.equals(messageHeaderDto.getVxpWorkflowName())) {
+            throw new BusinessValidationException("FHIRSalivaryConverterUtility: supplyRequest incorrect workflow name for order type");
+        }
+
+        //Get orderInfo from genotek
+        var orderInfoValue = getOrderInfo(Long.valueOf(orderId));
+
+        //Create SupplyRequestOrder model
+        //Every Resource requires text narrative required for conversion
+        SupplyRequest supplyRequest = new SupplyRequest();
+        supplyRequest.setText(createDefaultNarrative());
+
+        //create and set status
+        supplyRequest.setStatus(status);
+
+        //creating contained resources
+        supplyRequest.addContained(createOrganization(ORGANIZATION_NAME));
+        supplyRequest.addContained(createDevice(orderInfoValue));
+        if (participantDto != null) {
+            supplyRequest.addContained(createPatient(participantDto));
+        }
+
+        //add fulfillmentStatus and Order Type
+        supplyRequest.addExtension(createExtension(new StringType(fulfillmentResponseDto.getStatus().name()), FULFILLMENT_STATUS));
+        supplyRequest.addExtension(createExtension(new StringType(orderInfoValue.getOrderType()), ORDER_TYPE));
+
+        // Add Identifier for supplyRequest
+        setIdentifierAndExtensionToSupplyRequest(fulfillmentResponseDto, supplyRequest, orderId);
+
+        // Add References
+        addSupplyRequestReferences(supplyRequest, fulfillmentResponseDto);
+
+        return supplyRequest;
+    }
+
+    public SupplyDelivery fulfillmentOrderToSupplyDeliveryFHIRConverter(FulfillmentResponseDto fulfillmentResponseDto, TrackingDetailsDTO trackingDetailsDTO, ParticipantDto participantDto, SupplyDelivery.SupplyDeliveryStatus status, DRCSupplyMessageStatusType statusType,
+                                                                        MessageHeaderDto messageHeaderDto, Long orderId) {
+        if (trackingDetailsDTO == null || messageHeaderDto == null) {
+            throw new BusinessValidationException("FHIRSalivaryConverterUtility: supplyDelivery cannot convert missing request");
+        }
+
+        if (messageHeaderDto.getVxpWorkflowName() == null || !WorkflowNameEnum.FULFILLMENT_KIT_ORDER.equals(messageHeaderDto.getVxpWorkflowName())) {
+            throw new BusinessValidationException("FHIRSalivaryConverterUtility: supplyDelivery incorrect workflow name for order type");
+        }
+
+        //Get orderInfo from genotek
+        var orderInfoValue = getOrderInfo(orderId);
+
+        SupplyDelivery supplyDelivery = new SupplyDelivery();
+        supplyDelivery.setText(createDefaultNarrative());
+
+        //create and set status
+        supplyDelivery.setStatus(status);
+
+        // creating contained resources
+        supplyDelivery.addContained(createOrganization(trackingDetailsDTO.getCarrierCode()!= null? trackingDetailsDTO.getCarrierCode() : ORGANIZATION_NAME));
+        supplyDelivery.addContained(createDevice(orderInfoValue));
+
+        //Choose location based on status
+        supplyDelivery.addContained(createLocation(statusType, participantDto));
+
+        //Add Identifiers for supplyDelivery
+        supplyDelivery.addIdentifier(createAndSetIdentifier(trackingDetailsDTO.getTrackingId(), SupplyConstants.TRACKING_ID));
+
+        //Add supplyDelivery extensions
+        if (trackingDetailsDTO.getStatus() != null) {
+            supplyDelivery.addExtension(createExtension(new StringType(trackingDetailsDTO.getStatus()), SupplyConstants.TRACKING_STATUS_URL));
+        }
+        Long expectedDeliveryDate = trackingDetailsDTO.getDeliveredOn();
+        supplyDelivery.addExtension(createExtension(expectedDeliveryDate == null ? null
+                : new DateTimeType(new Date(expectedDeliveryDate), TemporalPrecisionEnum.SECOND), SupplyConstants.EXPECTED_DELIVERY_DATE_URL));
+        supplyDelivery.addExtension(createExtension(new StringType(orderInfoValue.getOrderType()), SupplyConstants.ORDER_TYPE));
+        supplyDelivery.addExtension(createExtension(new StringType(trackingDetailsDTO.getCarrierCode()), SupplyConstants.CARRIER_URL));
+
+
+        // Add supply delivery references
+        addSupplyDeliveryReferences(supplyDelivery, trackingDetailsDTO, orderId, participantDto);
+
+        if (!statusType.isEqualOrBefore(PARTICIPANT_DELIVERY)) {
+            supplyDelivery.addPartOf(new Reference().setIdentifier(createAndSetIdentifier(trackingDetailsDTO.getTrackingId(), SupplyConstants.TRACKING_ID)));
+        }
+
+        // create and set suppliedItem
+        // Sending it as DEFAULT_QUANTITY. Items never send from TrackDeliveryResponse. So it should be always DEFAULT_QUANTITY
+        supplyDelivery.setSuppliedItem(createSupplyDeliveryComponent(DEFAULT_QUANTITY));
+
+        // set occurrence date time
+        supplyDelivery.setOccurrence(getStatusTime(fulfillmentResponseDto) <= 0 ? null
+                : new DateTimeType(new Date(getStatusTime(fulfillmentResponseDto)), TemporalPrecisionEnum.SECOND));
+
+        return supplyDelivery;
     }
 
     public SupplyDelivery orderToSupplyDeliveryFHIRConverter(TrackDeliveryResponseDto trackDeliveryResponseDto, SupplyDelivery.SupplyDeliveryStatus status, DRCSupplyMessageStatusType statusType,
@@ -369,19 +467,7 @@ public class FHIRSalivaryConverterUtility {
         AddressUse addressUse = AddressUse.HOME;
         if (BIOBANK_SHIPPED.equals(statusType) || BIOBANK_DELIVERY.equals(statusType)) {
             addressUse = AddressUse.WORK;
-            vxpOrderAddressDTO = new AddressDto();
-            String bioBankAddress = this.apiService.getBioBankAddress();
-            try {
-                JSONObject json = new JSONObject(bioBankAddress);
-                JSONArray jsonLines = json.getJSONArray("line");
-                vxpOrderAddressDTO.setLine1(jsonLines.getString(0));
-                vxpOrderAddressDTO.setLine1(jsonLines.getString(1));
-                vxpOrderAddressDTO.setCity(json.getString("city"));
-                vxpOrderAddressDTO.setState(json.getString("state"));
-                vxpOrderAddressDTO.setPostalCode(json.getString("postalCode"));
-            } catch (JSONException e) {
-                LOGGER.error("Supply conversion location details cannot be parsed", e);
-            }
+            vxpOrderAddressDTO = getBioBankAddressDto();
 
         } else {
             vxpOrderAddressDTO = trackDeliveryResponseDto.getParticipant().getAddresses().get(0);
@@ -437,4 +523,82 @@ public class FHIRSalivaryConverterUtility {
         return suppliedItem;
     }
 
+
+    private void setIdentifierAndExtensionToSupplyRequest(FulfillmentResponseDto fulfillmentResponseDto, SupplyRequest supplyRequest, String orderId) {
+
+        supplyRequest.addIdentifier(createAndSetIdentifier(orderId, getIdentifierTypeValue(IdentifierTypeEnum.ORDER_ID)));
+
+        if (fulfillmentResponseDto.getAttributes().containsKey(IdentifierTypeEnum.FULFILLMENT_ID.toValue())) {
+            supplyRequest.addIdentifier(createAndSetIdentifier(fulfillmentResponseDto.getAttributes().get(IdentifierTypeEnum.FULFILLMENT_ID.toValue()), getIdentifierTypeValue(IdentifierTypeEnum.FULFILLMENT_ID)));
+        }
+        if (fulfillmentResponseDto.getAttributes().containsKey(IdentifierTypeEnum.BARCODE_1_D.toValue())) {
+            var barcodeValue = fulfillmentResponseDto.getAttributes().get(IdentifierTypeEnum.BARCODE_1_D.toValue());
+            supplyRequest.addExtension(createExtension(barcodeValue == null ? null : new StringType(barcodeValue), getIdentifierTypeValue(IdentifierTypeEnum.BARCODE_1_D)));
+        }
+    }
+
+    private static void addSupplyRequestReferences(SupplyRequest supplyRequest, FulfillmentResponseDto fulfillmentResponseDto) {
+        supplyRequest.setItem(new Reference("#" + DEVICE_ONE));
+        supplyRequest.setQuantity(new Quantity().setValue(fulfillmentResponseDto.getOrder().getQuantity()!= null ? fulfillmentResponseDto.getOrder().getQuantity() : DEFAULT_QUANTITY));
+
+        //Add other references
+        supplyRequest.setAuthoredOn(new Date(getStatusTime(fulfillmentResponseDto)));
+
+        supplyRequest.getRequester().setReference("#" + PATIENT_REFERENCE);
+        supplyRequest.getDeliverFrom().setReference("#" + SUPPLIER_ONE);
+
+        supplyRequest.getSupplier().add(new Reference("#" + SUPPLIER_ONE));
+        supplyRequest.getDeliverTo().setReference("#" + PATIENT_REFERENCE);
+    }
+
+    private Location createLocation(DRCSupplyMessageStatusType statusType, ParticipantDto participantDto) {
+        Location location = new Location();
+        location.setId(SupplyConstants.LOCATION_ONE);
+        AddressDto vxpOrderAddressDTO = null;
+        AddressUse addressUse = AddressUse.HOME;
+        if (BIOBANK_SHIPPED.equals(statusType) || BIOBANK_DELIVERY.equals(statusType)) {
+            addressUse = AddressUse.WORK;
+            vxpOrderAddressDTO = getBioBankAddressDto();
+
+        } else if (participantDto.getAddresses() != null) {
+            vxpOrderAddressDTO = participantDto.getAddresses().get(0);
+        }
+
+        if (vxpOrderAddressDTO != null) {
+            List<AddressDto> singleAddressList = new ArrayList<>();
+            singleAddressList.add(vxpOrderAddressDTO);
+            location.setAddress(convertedAddressToFHIRAddress(singleAddressList, addressUse));
+        }
+        return location;
+    }
+
+    private AddressDto getBioBankAddressDto() {
+        AddressDto vxpOrderAddressDTO = new AddressDto();
+        String bioBankAddress = this.apiService.getBioBankAddress();
+        try {
+            JSONObject json = new JSONObject(bioBankAddress);
+            JSONArray jsonLines = json.getJSONArray("line");
+            vxpOrderAddressDTO.setLine1(jsonLines.getString(0));
+            vxpOrderAddressDTO.setLine1(jsonLines.getString(1));
+            vxpOrderAddressDTO.setCity(json.getString("city"));
+            vxpOrderAddressDTO.setState(json.getString("state"));
+            vxpOrderAddressDTO.setPostalCode(json.getString("postalCode"));
+        } catch (JSONException e) {
+            LOGGER.error("Supply conversion location details cannot be parsed", e);
+        }
+        return vxpOrderAddressDTO;
+    }
+
+    private void addSupplyDeliveryReferences(SupplyDelivery supplyDelivery, TrackingDetailsDTO trackingDetailsDTO, Long orderId, ParticipantDto participantDto) {
+        if (supplyDelivery == null || trackingDetailsDTO == null)
+            return;
+        supplyDelivery.addBasedOn(new Reference().setIdentifier(createAndSetIdentifier(orderId != null ? String.valueOf(orderId) : null, SupplyConstants.ORDER_ID)));
+        supplyDelivery.setPatient(new Reference().setIdentifier(createAndSetIdentifier(participantDto.getExternalID(), SupplyConstants.PARTICIPANT_ID)));
+        supplyDelivery.setSupplier(new Reference("#" + SupplyConstants.SUPPLIER_ONE));
+        supplyDelivery.setDestination(new Reference("#" + SupplyConstants.LOCATION_ONE));
+    }
+
+    private static long getStatusTime(FulfillmentResponseDto fulfillmentResponseDto) {
+        return fulfillmentResponseDto.getStatusTime();
+    }
 }

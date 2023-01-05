@@ -57,6 +57,8 @@ vibrent:
       basics:
         id: ${BASICS_FORM_ID:284}
         name: ${BASICS_FORM_NAME:TheBasics}
+    genomicSchedulingWorkflow:
+      enabled: ${GENOMIC_SCHEDULING_WORKFLOW_ENABLED:false}
   drc-service:
     acadiaApiUrl: ${API_SERVER:http://localhost:8080}
     genotekUrl: ${GENOTEK_HOST_URL:http://localhost:8080}

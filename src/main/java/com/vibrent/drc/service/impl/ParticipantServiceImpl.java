@@ -6,11 +6,11 @@ import com.vibrent.drc.dto.UserSearchParamRequestDTO;
 import com.vibrent.drc.dto.UserSearchRequestDTO;
 import com.vibrent.drc.dto.UserSearchResponseDTO;
 import com.vibrent.drc.enumeration.UserInfoType;
-import com.vibrent.drc.exception.BusinessProcessingException;
-import com.vibrent.drc.exception.HttpClientValidationException;
+import com.vibrent.drc.exception.*;
 import com.vibrent.drc.service.ParticipantService;
 import com.vibrent.drc.util.JacksonUtil;
 import com.vibrent.drc.util.RestClientUtil;
+import com.vibrenthealth.drcutils.service.DRCRetryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheConfig;
@@ -22,9 +22,11 @@ import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.vibrent.drc.constants.DrcConstant.DEFAULT_PAGE;
 
@@ -37,53 +39,84 @@ public class ParticipantServiceImpl implements ParticipantService {
     private final OAuth2RestTemplate keycloakDrcInternalCredentialsRestTemplate;
     private final RestClientUtil restClientUtil;
     private final VibrentIdCacheManager vibrentIdCacheManager;
+    private final DRCRetryService retryService;
+    private final Set<String> retryForHttpStatusCodes;
 
 
-    public ParticipantServiceImpl(@Value("${vibrent.drc-service.acadiaApiUrl}") String apiUrl, OAuth2RestTemplate keycloakDrcInternalCredentialsRestTemplate, RestClientUtil restClientUtil, VibrentIdCacheManager vibrentIdCacheManager) {
+    public ParticipantServiceImpl(@Value("${vibrent.drc-service.acadiaApiUrl}") String apiUrl,
+                                  OAuth2RestTemplate keycloakDrcInternalCredentialsRestTemplate, RestClientUtil restClientUtil,
+                                  VibrentIdCacheManager vibrentIdCacheManager,
+                                  DRCRetryService retryService,
+                                  @Value("${vibrent.drc-service.retryApiCall.retryForHttpStatusCode}") String retryForHttpStatusCodes) {
         this.apiUrl = apiUrl;
         this.keycloakDrcInternalCredentialsRestTemplate = keycloakDrcInternalCredentialsRestTemplate;
         this.restClientUtil = restClientUtil;
         this.vibrentIdCacheManager = vibrentIdCacheManager;
+        this.retryService = retryService;
+        this.retryForHttpStatusCodes = StringUtils.isEmpty(retryForHttpStatusCodes) ? new HashSet<>() : Arrays.stream(retryForHttpStatusCodes.split(",")).map(String::trim).collect(Collectors.toSet());
     }
 
     @Override
     public UserSearchResponseDTO getParticipantsByVibrentIds(List<String> vibrentIds) {
         try {
+            return retryService.executeWithRetryForExceptions(() -> getParticipantsByVibrentIdsFromApi(vibrentIds), List.of(RecoverableException.class));
+        } catch (Exception e) {
+            log.error("{}", e.getMessage(), e);
+            throw new BusinessProcessingException(e.getMessage(), e);
+        }
+    }
+
+    private UserSearchResponseDTO getParticipantsByVibrentIdsFromApi(List<String> vibrentIds) throws ApiRequestException {
+        try {
             String url = apiUrl + DrcConstant.USER_INFO_SEARCH_API;
-            OAuth2AccessToken accessToken = keycloakDrcInternalCredentialsRestTemplate.getAccessToken();
+            OAuth2AccessToken accessToken = getAccessToken();
             UserSearchRequestDTO userSearchRequestDTO = getUserSearchRequestDTO(vibrentIds, UserInfoType.VIBRENT_ID, DEFAULT_PAGE, Integer.MAX_VALUE);
             HttpEntity<UserSearchRequestDTO> httpEntity = new HttpEntity<>(userSearchRequestDTO, restClientUtil.addAuthHeader(accessToken.getValue()));
             String responseBody = restClientUtil.postRequest(url, httpEntity);
             return JacksonUtil.getMapper().readValue(responseBody, UserSearchResponseDTO.class);
         } catch (Exception e) {
-            throw new BusinessProcessingException("DRC Service: Failed to retrieve User Info for VibrentIds: " + vibrentIds, e);
+            handleException(e, "DRC Service: Failed to retrieve User Info for VibrentIds", vibrentIds);
         }
+
+        return null;
     }
+
 
     @Override
     public UserSearchResponseDTO getParticipantsByDrcIds(List<String> drcIds) {
         try {
+            return retryService.executeWithRetryForExceptions(() -> getParticipantsByDrcIdsFromApi(drcIds), List.of(RecoverableException.class));
+        } catch (Exception e) {
+            log.error("{}", e.getMessage(), e);
+            throw new BusinessProcessingException(e.getMessage(), e);
+        }
+    }
+
+
+    private UserSearchResponseDTO getParticipantsByDrcIdsFromApi(List<String> drcIds) throws ApiRequestException {
+        try {
             String url = apiUrl + DrcConstant.USER_INFO_SEARCH_API;
-            OAuth2AccessToken accessToken = keycloakDrcInternalCredentialsRestTemplate.getAccessToken();
+            OAuth2AccessToken accessToken = getAccessToken();
             UserSearchRequestDTO userSearchRequestDTO = getUserSearchRequestDTO(drcIds, UserInfoType.EXTERNAL_ID, DEFAULT_PAGE, Integer.MAX_VALUE);
             HttpEntity<UserSearchRequestDTO> httpEntity = new HttpEntity<>(userSearchRequestDTO, restClientUtil.addAuthHeader(accessToken.getValue()));
             String responseBody = restClientUtil.postRequest(url, httpEntity);
-            log.info("DRC-Service: Calling API to fetch Vibrent id");
+            log.debug("DRC-Service: Calling API to fetch VibrentIds for externIds is successful");
             return JacksonUtil.getMapper().readValue(responseBody, UserSearchResponseDTO.class);
         } catch (Exception e) {
-            throw new BusinessProcessingException("DRC Service: Failed to retrieve User Info for drcIds: " + drcIds, e);
+            handleException(e, "DRC Service: Failed to retrieve User Info for drcIds", drcIds);
         }
+        return null;
     }
 
     @Override
     @Cacheable(DrcConstant.VIBRENTID_CACHE)
     public Long getVibrentId(String externalId) {
         UserSearchResponseDTO userSearchResponseDTO = this.getParticipantsByDrcIds(Collections.singletonList(externalId));
-        if(userSearchResponseDTO == null || CollectionUtils.isEmpty(userSearchResponseDTO.getResults())
-            || CollectionUtils.isEmpty(userSearchResponseDTO.getResults().get(0))
-            || StringUtils.isEmpty(userSearchResponseDTO.getResults().get(0).get(UserInfoType.VIBRENT_ID))) {
-            log.warn("DRC Service: Couldn't fetch VibrentID from API for given externalID: {}", externalId);
-            return null;
+        if (userSearchResponseDTO == null || CollectionUtils.isEmpty(userSearchResponseDTO.getResults())
+                || CollectionUtils.isEmpty(userSearchResponseDTO.getResults().get(0))
+                || StringUtils.isEmpty(userSearchResponseDTO.getResults().get(0).get(UserInfoType.VIBRENT_ID))) {
+            log.error("DRC Service: Couldn't fetch VibrentID from API for given externalID: {}", externalId);
+            throw new BusinessValidationException("DRC Service: Unable to resolve VibrentID for the given externalId: " + externalId);
         }
         Map<UserInfoType, Object> userInfo = userSearchResponseDTO.getResults().get(0);
         return Long.valueOf(userInfo.get(UserInfoType.VIBRENT_ID).toString());
@@ -93,24 +126,36 @@ public class ParticipantServiceImpl implements ParticipantService {
     public UserSearchResponseDTO getParticipants(List<String> vibrentIds, List<String> drcIds, Optional<String> startDate,
                                                  Optional<String> endDate, Optional<Integer> page, Optional<Integer> pageSize) {
         try {
+            return retryService.executeWithRetryForExceptions(() -> getParticipantsFromApi(vibrentIds, drcIds, startDate, endDate, page, pageSize), List.of(RecoverableException.class));
+        } catch (HttpClientValidationException e) {
+            log.error("{}", e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            log.error("{}", e.getMessage(), e);
+            throw new BusinessProcessingException(e.getMessage(), e);
+        }
+    }
+
+    private UserSearchResponseDTO getParticipantsFromApi(List<String> vibrentIds, List<String> drcIds, Optional<String> startDate, Optional<String> endDate, Optional<Integer> page, Optional<Integer> pageSize) throws ApiRequestException {
+        try {
             String url = apiUrl + DrcConstant.USER_INFO_SEARCH_API;
-            OAuth2AccessToken accessToken = keycloakDrcInternalCredentialsRestTemplate.getAccessToken();
+            OAuth2AccessToken accessToken = getAccessToken();
             UserSearchRequestDTO userSearchRequestDTO = getUserSearchRequestDTO(vibrentIds, drcIds, startDate, endDate, page, pageSize);
             HttpEntity<UserSearchRequestDTO> httpEntity = new HttpEntity<>(userSearchRequestDTO, restClientUtil.addAuthHeader(accessToken.getValue()));
             String responseBody = restClientUtil.postRequest(url, httpEntity);
             return JacksonUtil.getMapper().readValue(responseBody, UserSearchResponseDTO.class);
-        } catch (HttpClientErrorException e) {
+        } catch (HttpStatusCodeException e) {
             if (e.getStatusCode() == HttpStatus.BAD_REQUEST) {
                 throw new HttpClientValidationException(e.getResponseBodyAsString(), e.getStatusCode().value());
             } else {
-                throw new BusinessProcessingException("DRC Service: Failed to retrieve User Info for VibrentIds " + vibrentIds +
-                        ", drcIds: " + drcIds + ", startDate: " + startDate + ", endDate: " + endDate, e);
+                handleException(e, "DRC Service: Failed to retrieve User Info for ", ("VibrentIds:" + vibrentIds + ", drcIds: " + drcIds + ", startDate: " + startDate + ", endDate: " + endDate));
             }
         } catch (Exception e) {
-            throw new BusinessProcessingException("DRC Service: Failed to retrieve User Info for VibrentIds " + vibrentIds +
-                    ", drcIds: " + drcIds + ", startDate: " + startDate + ", endDate: " + endDate, e);
+            handleException(e, "DRC Service: Failed to retrieve User Info for ", ("VibrentIds:" + vibrentIds + ", drcIds: " + drcIds + ", startDate: " + startDate + ", endDate: " + endDate));
         }
+        return null;
     }
+
 
     @Override
     public void fetchAndCacheVibrentIds(Set<String> externalIds) {
@@ -138,7 +183,7 @@ public class ParticipantServiceImpl implements ParticipantService {
      */
     private static UserSearchRequestDTO getUserSearchRequestDTO(List<String> inputIds, UserInfoType userInfoType, int page, int pageSize) {
         UserSearchRequestDTO userSearchRequestDTO = new UserSearchRequestDTO();
-        if(userInfoType == UserInfoType.VIBRENT_ID || userInfoType == UserInfoType.EXTERNAL_ID) {
+        if (userInfoType == UserInfoType.VIBRENT_ID || userInfoType == UserInfoType.EXTERNAL_ID) {
             UserSearchParamRequestDTO userSearchParamRequestDTO = new UserSearchParamRequestDTO();
             userSearchParamRequestDTO.setInputType(userInfoType);
 
@@ -185,7 +230,7 @@ public class ParticipantServiceImpl implements ParticipantService {
     }
 
     private static UserSearchParamRequestDTO getIdsSearchParam(List<String> ids, UserInfoType userInfoType) {
-        if(!CollectionUtils.isEmpty(ids)) {
+        if (!CollectionUtils.isEmpty(ids)) {
             UserSearchParamRequestDTO userSearchParamRequestDTO = new UserSearchParamRequestDTO();
             userSearchParamRequestDTO.setInputType(userInfoType);
             Map<String, Object> filter = new HashMap<>();
@@ -199,7 +244,7 @@ public class ParticipantServiceImpl implements ParticipantService {
     private static UserSearchParamRequestDTO getDateSearchParam(Optional<String> startDate, Optional<String> endDate) {
         String sDate = startDate.orElse(null);
         String eDate = endDate.orElse(null);
-        if(!StringUtils.isEmpty(sDate) || !StringUtils.isEmpty(eDate)) {
+        if (!StringUtils.isEmpty(sDate) || !StringUtils.isEmpty(eDate)) {
             UserSearchParamRequestDTO userSearchParamRequestDTO = new UserSearchParamRequestDTO();
             Map<String, Object> inputParams = new HashMap<>();
             inputParams.put("startDate", sDate);
@@ -218,7 +263,6 @@ public class ParticipantServiceImpl implements ParticipantService {
     }
 
     /**
-     *
      * @param searchParams
      * @param userInfoType
      * @param paramValue
@@ -245,12 +289,13 @@ public class ParticipantServiceImpl implements ParticipantService {
 
     /**
      * Get UserInfo map for the given external ID
+     *
      * @param responseList
      * @param externalId
      * @return
      */
     private static Map<UserInfoType, Object> getUserInfoMap(List<Map<UserInfoType, Object>> responseList, String externalId) {
-        if(CollectionUtils.isEmpty(responseList) || StringUtils.isEmpty(externalId)) {
+        if (CollectionUtils.isEmpty(responseList) || StringUtils.isEmpty(externalId)) {
             return Collections.emptyMap();
         }
 
@@ -261,5 +306,30 @@ public class ParticipantServiceImpl implements ParticipantService {
             }
         }
         return Collections.emptyMap();
+    }
+
+    private void handleException(Exception e, String errMsg, Object addParams) throws ApiRequestException {
+        if (e instanceof ResourceAccessException) {
+            log.warn("{}:{} with ResourceAccessException. Retrying the request.", errMsg, addParams);
+            throw new RecoverableException(String.join(" ", errMsg, ":", String.valueOf(addParams) ,"with ResourceAccessException."));
+        } else if (e instanceof HttpStatusCodeException && retryForHttpStatusCodes.contains(String.valueOf(((HttpStatusCodeException) e).getStatusCode().value()))) {
+            log.warn("{}:{} with error code {}. Retrying the request.", errMsg, addParams, ((HttpStatusCodeException) e).getStatusCode().value());
+            throw new RecoverableException(String.join(" ", errMsg, "with status code.", String.valueOf(((HttpStatusCodeException) e).getStatusCode())));
+        } else {
+            throw new NonRecoverableException(String.join(" ", errMsg, ":", String.valueOf(addParams)), e);
+        }
+    }
+
+
+    private OAuth2AccessToken getAccessToken() {
+
+        OAuth2AccessToken accessToken = keycloakDrcInternalCredentialsRestTemplate.getAccessToken();
+
+        if(accessToken.getExpiresIn() < 30) {
+            keycloakDrcInternalCredentialsRestTemplate.getOAuth2ClientContext().setAccessToken(null);
+            accessToken = keycloakDrcInternalCredentialsRestTemplate.getAccessToken();
+        }
+
+        return accessToken;
     }
 }

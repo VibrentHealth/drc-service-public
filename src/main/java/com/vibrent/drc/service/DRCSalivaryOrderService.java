@@ -1,8 +1,7 @@
 package com.vibrent.drc.service;
 
-import com.vibrent.vxp.workflow.CreateTrackOrderResponseDto;
-import com.vibrent.vxp.workflow.MessageHeaderDto;
-import com.vibrent.vxp.workflow.TrackDeliveryResponseDto;
+import com.vibrent.fulfillment.dto.OrderDetailsDTO;
+import com.vibrent.vxp.workflow.*;
 
 /**
  * service for various operations for supplyRequest and supplyDelivery
@@ -25,4 +24,15 @@ public interface DRCSalivaryOrderService {
      * @return SupplyRequestOrder
      */
     void verifyAndSendTrackDeliveryResponse(TrackDeliveryResponseDto trackDeliveryResponseDto, MessageHeaderDto messageHeaderDto) ;
+
+    /**
+     * Verify and send the response received from Fulfillment
+     *
+     * @param fulfillmentResponseDto Response object received from Fulfillment
+     * @param messageHeaderDto       messageHeaderDto received from Fulfillment response
+     * @param orderDetailsDTO
+     * @param participantDto
+     */
+    void verifyAndSendFulfillmentOrderResponse(FulfillmentResponseDto fulfillmentResponseDto, MessageHeaderDto messageHeaderDto, OrderDetailsDTO orderDetailsDTO, ParticipantDto participantDto);
+
 }

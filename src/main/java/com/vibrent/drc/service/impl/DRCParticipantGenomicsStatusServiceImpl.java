@@ -73,7 +73,7 @@ public class DRCParticipantGenomicsStatusServiceImpl implements DRCParticipantGe
 
     @Override
     @Transactional
-    public void retrieveParticipantGenomicsStatusFromDrc() throws DrcConnectorException, JsonProcessingException {
+    public void retrieveParticipantGenomicsStatusFromDrc(String url, ExternalEventType externalEventType, SystemPropertiesEnum systemPropertiesEnum) throws DrcConnectorException, JsonProcessingException {
 
         // If drc is not initialised, then log the warn message and return
         if (!drcBackendProcessorWrapper.isInitialized()) {
@@ -81,50 +81,50 @@ public class DRCParticipantGenomicsStatusServiceImpl implements DRCParticipantGe
             return;
         }
 
-        // retrieve the last time stamp from the database
-        SystemProperties property = systemPropertiesRepository.findByName(SystemPropertiesEnum.DRC_GENOMICS_REPORT_READY_STATUS);
+        try {
+            SystemProperties property = systemPropertiesRepository.findByName(systemPropertiesEnum);
+            String timeStampToFetchNextStatus = property != null ? property.getValue() : null;
+            String startDate = timeStampToFetchNextStatus != null ? timeStampToFetchNextStatus : DrcConstant.DEFAULT_START_DATE;
 
-        String timeStampToFetchNextStatus = property != null ? property.getValue() : null;
+            String uriString = drcConfigService.getDrcApiBaseUrl() +
+                    UriComponentsBuilder.fromUriString(url)
+                            .queryParam("start_date", "{startDate}")
+                            .encode()
+                            .buildAndExpand(startDate)
+                            .toUriString();
 
-        String startDate = timeStampToFetchNextStatus != null ? timeStampToFetchNextStatus : DrcConstant.DEFAULT_START_DATE;
+            log.info("Drc-Service: Request URL called for Genomics Outreach API V2: {}", uriString);
+            ExternalApiRequestLog externalApiRequestLog = ExternalApiRequestLogUtil.createExternalApiRequestLog(externalEventType);
 
-        String uriString = drcConfigService.getDrcApiBaseUrl() +
-                UriComponentsBuilder.fromUriString(DrcConstant.URL_GENOMICS_PARTICIPANT_STATUS)
-                        .queryParam("start_date", "{startDate}")
-                        .encode()
-                        .buildAndExpand(startDate)
-                        .toUriString();
+            HttpResponseWrapper responseFromDrc = drcBackendProcessorWrapper.sendRequest(uriString, null, RequestMethod.GET, null, externalApiRequestLog);
+            if (responseFromDrc.getStatusCode() == HttpStatus.OK.value()) {
 
-        log.info("DRC Service: Request URL called for Genomics Outreach API V2: {}", uriString);
-        ExternalApiRequestLog externalApiRequestLog = ExternalApiRequestLogUtil.createExternalApiRequestLog(ExternalEventType.DRC_GENOMICS_RESULT_STATUS);
+                GenomicGemResponseDTO genomicGemResponseDTO = JacksonUtil.getMapper().readValue(responseFromDrc.getResponseBody(), GenomicGemResponseDTO.class);
 
-        // call the DRC to get Genomics report ready status
-        HttpResponseWrapper responseFromDrc = drcBackendProcessorWrapper.sendRequest(uriString, null, RequestMethod.GET, null, externalApiRequestLog);
-        if (responseFromDrc.getStatusCode() == HttpStatus.OK.value()) {
+                if (genomicGemResponseDTO.getTimestamp() == null) {
+                    log.warn("Drc-Service: Returned Invalid response from DRC for {} api call with response as {}", url, responseFromDrc.getResponseBody());
+                    return;
+                }
 
-            GenomicGemResponseDTO genomicGemResponseDTO = JacksonUtil.getMapper().readValue(responseFromDrc.getResponseBody(), GenomicGemResponseDTO.class);
+                ParticipantGenomicStatusPayload savedEntity = saveExternalParticipantStatusPayloads(startDate, genomicGemResponseDTO.getTimestamp(), responseFromDrc.getResponseBody());
+                saveExternalParticipantStatusBatches(genomicGemResponseDTO.getData(), batchProcessingSize, savedEntity);
 
-            if (genomicGemResponseDTO.getTimestamp() == null) {
-                log.warn("DRC: Returned Invalid response from DRC for Genomics report ready status api call with response as {}", responseFromDrc.getResponseBody());
-                return;
+                // save the retrieved time stamp in the database.
+                saveSystemProperties(property, genomicGemResponseDTO.getTimestamp(), systemPropertiesEnum);
+                dataSharingMetricsService.incrementGenomicsStatusFetchInitiatedCounter(genomicGemResponseDTO.getData().size());
+                log.info("Drc-Service : Data saved successfully for requested timestamp {} while calling {}", startDate, url);
+            } else {
+                log.warn("Drc-Service : Error response received from DRC with status code as {} while calling {}", responseFromDrc.getStatusCode(), url);
             }
-
-            ParticipantGenomicStatusPayload savedEntity = saveExternalParticipantStatusPayloads(startDate, genomicGemResponseDTO.getTimestamp(), responseFromDrc.getResponseBody());
-            saveExternalParticipantStatusBatches(genomicGemResponseDTO.getData(), batchProcessingSize, savedEntity);
-
-            // save the retrieved time stamp in the database.
-            saveSystemProperties(property, genomicGemResponseDTO.getTimestamp());
-            dataSharingMetricsService.incrementGenomicsStatusFetchInitiatedCounter(genomicGemResponseDTO.getData().size());
-            log.info("DRC : Data saved successfully for requested timestamp {}", startDate);
-        }else{
-            log.warn("DRC : Error response received from DRC with status code as {}", responseFromDrc.getStatusCode());
+        } catch (Exception e) {
+            log.error("DRC-Service: Exception while fetching {} from DRC ", externalEventType.toString(), e );
         }
     }
 
-    private SystemProperties saveSystemProperties(SystemProperties systemProperties, String timestamp) {
+    private SystemProperties saveSystemProperties(SystemProperties systemProperties, String timestamp, SystemPropertiesEnum systemPropertiesEnum) {
         if (systemProperties == null) {
             systemProperties = new SystemProperties();
-            systemProperties.setName(SystemPropertiesEnum.DRC_GENOMICS_REPORT_READY_STATUS);
+            systemProperties.setName(systemPropertiesEnum);
         }
         systemProperties.setValue(timestamp);
         this.systemPropertiesRepository.save(systemProperties);

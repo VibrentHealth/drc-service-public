@@ -36,7 +36,7 @@ public class DrcExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     @ResponseBody
     public void processBusinessProcessingException(BusinessProcessingException e) {
-        log.warn("drc-service: Internal server error occurred", e);
+        log.error("drc-service: Internal server error occurred. More details - {}", e.getMessage(), e);
     }
 
     @ExceptionHandler(BusinessValidationException.class)
@@ -62,7 +62,7 @@ public class DrcExceptionHandler {
         String message = e.getMessage() != null ? e.getMessage().split(";")[0] : "Parse Error";
         log.warn("drc-service: Bad request -{} ", message, e);
 
-        return new ErrorDTO(message);
+        return new ErrorDTO("Bad Request");
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class})

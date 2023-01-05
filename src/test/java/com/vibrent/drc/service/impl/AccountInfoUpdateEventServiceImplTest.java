@@ -17,7 +17,6 @@ import com.vibrent.drc.domain.DRCUpdateInfoSyncRetry;
 import com.vibrent.drc.dto.Participant;
 import com.vibrent.drc.enumeration.ConsentWithdrawStatus;
 import com.vibrent.drc.enumeration.DataTypeEnum;
-import com.vibrent.drc.repository.DRCUpdateInfoSyncRetryRepository;
 import com.vibrent.drc.service.*;
 import com.vibrent.drc.util.JacksonUtil;
 import com.vibrent.vxp.push.*;
@@ -32,7 +31,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -47,7 +45,8 @@ import java.util.stream.Stream;
 
 import static com.vibrent.drc.constants.DrcConstant.ROLE_CATI;
 import static com.vibrent.drc.constants.ProfileAccountConstants.FORM_NAME_CONSENT;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -105,7 +104,7 @@ class AccountInfoUpdateEventServiceImplTest {
     private AccountInfoUpdateEventHelperServiceImpl accountInfoUpdateEventHelperService;
 
     @Mock
-    private DRCUpdateInfoSyncRetryRepository drcUpdateInfoSyncRetryRepository;
+    private SyncRetryHelperService syncRetryHelperService;
 
     @BeforeEach
     public void setUp() {
@@ -113,7 +112,7 @@ class AccountInfoUpdateEventServiceImplTest {
         formEntryConverter = new FormEntryConverter(apiService, drcProperties, formFieldEntryConverter);
         retryService = new DRCRetryServiceImpl(drcConfigService);
         drcBackendProcessorWrapper = new DRCBackendProcessorWrapperImpl(externalApiRequestLogsService, drcBackendProcessorService);
-        accountInfoUpdateEventService = new AccountInfoUpdateEventServiceImpl(apiService, drcBackendProcessorWrapper, drcProperties, accountInfoUpdateEventHelperService, formEntryConverter, participantService, drcUpdateInfoSyncRetryRepository, retryService);
+        accountInfoUpdateEventService = new AccountInfoUpdateEventServiceImpl(apiService, drcBackendProcessorWrapper, drcProperties, accountInfoUpdateEventHelperService, formEntryConverter, participantService, retryService, syncRetryHelperService);
 
         initializeAccountInfoUpdateDto();
         initializeUserDTO();
@@ -153,7 +152,7 @@ class AccountInfoUpdateEventServiceImplTest {
         when(this.drcBackendProcessorService.sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class))).thenReturn(getDrcResponse());
 
         assertTrue(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
-        verify(drcUpdateInfoSyncRetryRepository, times(1)).deleteByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
+        verify(syncRetryHelperService, times(1)).deleteByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
 
     }
 
@@ -244,7 +243,7 @@ class AccountInfoUpdateEventServiceImplTest {
         when(drcConfigService.getRetryNum()).thenReturn(1L);
         when(this.drcBackendProcessorService.sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class))).thenReturn(getDrcResponse());
         assertTrue(accountInfoUpdateEventService.sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactChanges));
-        verify(drcUpdateInfoSyncRetryRepository, times(1)).deleteByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
+        verify(syncRetryHelperService, times(1)).deleteByVibrentIdAndType(accountInfoUpdateEventDto.getVibrentID(), DataTypeEnum.ACCOUNT_UPDATE_DATA);
     }
 
     @DisplayName("When form version received as null from API" +
@@ -271,8 +270,6 @@ class AccountInfoUpdateEventServiceImplTest {
         when(this.apiService.getFormEntryDtoByFormName(88707410L, ProfileAccountConstants.FORM_NAME_BASICS)).thenReturn(new FormEntryDTO());
         assertFalse(accountInfoUpdateEventService.sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactChanges));
 
-        //Verify Retry entry saved.
-        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(any(DRCUpdateInfoSyncRetry.class));
     }
 
     //Retry entries
@@ -285,24 +282,10 @@ class AccountInfoUpdateEventServiceImplTest {
         formEntryDTO.setExternalId(null);
 
         when(this.apiService.getFormEntryDtoByFormName(VIBRENT_ID, FORM_NAME_CONSENT)).thenReturn(formEntryDTO);
-        when(drcUpdateInfoSyncRetryRepository.findByVibrentIdAndType(anyLong(), any(DataTypeEnum.class))).thenReturn(null);
         assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
 
-        ArgumentCaptor<DRCUpdateInfoSyncRetry> captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
-        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
-        DRCUpdateInfoSyncRetry entry = captor.getValue();
-        assertEquals(0, entry.getRetryCount());
-
-
-        Mockito.reset(drcUpdateInfoSyncRetryRepository);
-        captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
-        when(drcUpdateInfoSyncRetryRepository.findByVibrentIdAndType(anyLong(), any(DataTypeEnum.class))).thenReturn(buildDrcUpdateInfoSyncRetryEntry(accountInfoUpdateEventDto));
-
+        Mockito.reset(syncRetryHelperService);
         assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
-        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
-
-        entry = captor.getValue();
-        assertEquals(0, entry.getRetryCount());
     }
 
     @DisplayName("When updated SecondaryContactInfo failed to send to DRC" +
@@ -320,19 +303,9 @@ class AccountInfoUpdateEventServiceImplTest {
         when(this.drcBackendProcessorService.sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class))).thenReturn(getDrcErrorResponse(400));
         assertFalse(accountInfoUpdateEventService.sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactChanges));
 
-        ArgumentCaptor<DRCUpdateInfoSyncRetry> captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
-        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
-        DRCUpdateInfoSyncRetry entry = captor.getValue();
-        assertEquals(1, entry.getRetryCount());
-
-        Mockito.reset(drcUpdateInfoSyncRetryRepository);
+        Mockito.reset(syncRetryHelperService);
         doThrow(new DrcConnectorException("")).when(drcBackendProcessorService).sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class));
         assertFalse(accountInfoUpdateEventService.sendSecondaryContactInfoAndSsnUpdates(accountInfoUpdateEventDto, ssn, secondaryContactChanges));
-
-        captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
-        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
-        entry = captor.getValue();
-        assertEquals(1, entry.getRetryCount());
     }
 
     @DisplayName("When updated user details failed to send to DRC" +
@@ -347,21 +320,10 @@ class AccountInfoUpdateEventServiceImplTest {
         when(this.drcBackendProcessorService.sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class))).thenReturn(getDrcErrorResponse(400));
 
         assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
-        ArgumentCaptor<DRCUpdateInfoSyncRetry> captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
-        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
-        DRCUpdateInfoSyncRetry entry = captor.getValue();
-        assertEquals(1, entry.getRetryCount());
 
-        Mockito.reset(drcUpdateInfoSyncRetryRepository);
+        Mockito.reset(syncRetryHelperService);
         doThrow(new Exception()).when(drcBackendProcessorService).sendRequestReturnDetails(anyString(), anyString(), any(RequestMethod.class), nullable(Map.class));
-
         assertFalse(accountInfoUpdateEventService.sendAccountInfoUpdates(accountInfoUpdateEventDto));
-        captor = ArgumentCaptor.forClass(DRCUpdateInfoSyncRetry.class);
-        verify(drcUpdateInfoSyncRetryRepository, times(1)).save(captor.capture());
-        entry = captor.getValue();
-        assertEquals(1, entry.getRetryCount());
-
-
     }
 
 

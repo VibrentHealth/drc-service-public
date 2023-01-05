@@ -8,7 +8,6 @@ import com.vibrent.drc.configuration.DrcProperties;
 import com.vibrent.drc.dto.ExternalApiRequestLog;
 import com.vibrent.drc.dto.Participant;
 import com.vibrent.drc.exception.BusinessProcessingException;
-import com.vibrent.drc.exception.DrcException;
 import com.vibrent.drc.service.AccountInfoUpdateEventHelperService;
 import com.vibrent.drc.service.DRCBackendProcessorWrapper;
 import com.vibrent.drc.util.JacksonUtil;
@@ -17,6 +16,7 @@ import com.vibrent.vxp.push.ParticipantDto;
 import com.vibrenthealth.drcutils.connector.HttpResponseWrapper;
 import com.vibrenthealth.drcutils.exception.DrcConnectorException;
 import com.vibrenthealth.drcutils.service.DRCRetryService;
+import lombok.SneakyThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -105,10 +105,14 @@ class DRCParticipantServiceImplTest {
     }
 
     @Test
+    @SneakyThrows
     void patchTestParticipantWhenAccountInfoUpdateEventIsValid(){
         AccountInfoUpdateEventDto accountInfoUpdateEventDto = getValidAccountInfoUpdateEventDto();
         drcParticipantService.patchTestParticipant(accountInfoUpdateEventDto);
         verify(accountInfoUpdateEventHelperService, times(1)).processIfTestParticipantUpdated(any(AccountInfoUpdateEventDto.class), any(BooleanSupplier.class));
+
+        when(retryService.executeWithRetry(any())).thenReturn(true);
+        assertTrue(drcParticipantService.validateAndCallDrcEndpoint(accountInfoUpdateEventDto));
     }
 
     @Test
@@ -175,9 +179,8 @@ class DRCParticipantServiceImplTest {
 
     private void verifyIfEventIsNotValid(ListAppender<ILoggingEvent> listAppender) {
         List<ILoggingEvent> logsList = listAppender.list;
-        assertEquals(1, logsList.size());
-        assertEquals("INFO", logsList.get(0).getLevel().toString());
-        assertEquals("DRC Service: UserId is null or participantId is null or test user flag is null or false. Cannot patch participant with DRC", logsList.get(0).getMessage());
+        //Debug level log is not configured, therefore no log will be printed
+        assertEquals(0, logsList.size());
     }
 
     private AccountInfoUpdateEventDto getValidAccountInfoUpdateEventDto() {

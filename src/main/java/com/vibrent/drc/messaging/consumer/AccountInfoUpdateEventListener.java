@@ -5,6 +5,7 @@ import com.vibrent.drc.service.AccountInfoUpdateEventService;
 import com.vibrent.drc.service.DRCParticipantService;
 import com.vibrent.drc.service.ExternalApiRequestLogsService;
 import com.vibrent.drc.util.ExternalApiRequestLogUtil;
+import com.vibrent.drc.util.JacksonUtil;
 import com.vibrent.drc.util.VxpPushMessageHeadersUtil;
 import com.vibrent.vxp.push.AccountInfoUpdateEventDto;
 import com.vibrent.vxp.push.MessageHeaderDto;
@@ -18,6 +19,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
 import javax.inject.Inject;
+import java.util.Arrays;
 
 @Slf4j
 @Component
@@ -41,8 +43,20 @@ public class AccountInfoUpdateEventListener {
     }
 
     @KafkaListener(topics = "${spring.kafka.topics.pushParticipant}", id = "drcAccountInfoUpdateEventListener", containerFactory = "kafkaListenerContainerFactoryAccountInfoUpdateEventListener")
-    public void listen(@Payload AccountInfoUpdateEventDto accountInfoUpdateEventDto,
+    public void listen(@Payload byte[] payloadByteArray,
                        @Headers MessageHeaders messageHeaders) {
+
+        AccountInfoUpdateEventDto accountInfoUpdateEventDto = convertToAccountInfoUpdateEventDto(payloadByteArray, messageHeaders);
+
+        if (accountInfoUpdateEventDto == null) {
+            return;
+        }
+
+        if (accountInfoUpdateEventDto.getParticipant() == null) {
+            log.warn("drc-service: Discarding accountInfoUpdateEvent as participant info is null ");
+            return;
+        }
+
         try {
             MessageHeaderDto messageHeaderDto = VxpPushMessageHeadersUtil.buildVxpPushMessageHeaderDto(messageHeaders);
             ExternalApiRequestLog externalApiRequestLog = ExternalApiRequestLogUtil.createExternalApiRequestLogForAccountInfoReceived(
@@ -55,8 +69,18 @@ public class AccountInfoUpdateEventListener {
             //Patch participant
             this.participantService.patchTestParticipant(accountInfoUpdateEventDto);
         } catch (Exception e) {
-            log.error("DRC: Error while processing accountInfoUpdateEventDto: {}", accountInfoUpdateEventDto, e);
+            log.error("DRC: Error while processing accountInfoUpdateEventDto: {} messageHeaders: {}", accountInfoUpdateEventDto, messageHeaders, e);
         }
 
+    }
+
+    AccountInfoUpdateEventDto convertToAccountInfoUpdateEventDto(byte[] payloadByteArray, MessageHeaders messageHeaders) {
+        AccountInfoUpdateEventDto accountInfoUpdateEventDto = null;
+        try {
+            accountInfoUpdateEventDto = JacksonUtil.getMapper().readValue(payloadByteArray, AccountInfoUpdateEventDto.class);
+        } catch (Exception e) {
+            log.warn("drc-service: Cannot convert Payload to accountInfoUpdateEventDto  headers {} payload: {}",  messageHeaders.toString(), Arrays.toString(payloadByteArray), e);
+        }
+        return accountInfoUpdateEventDto;
     }
 }

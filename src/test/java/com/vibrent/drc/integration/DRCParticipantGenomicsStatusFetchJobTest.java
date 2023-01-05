@@ -1,5 +1,8 @@
 package com.vibrent.drc.integration;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.vibrent.drc.constants.DrcConstant;
 import com.vibrent.drc.domain.ParticipantGenomicStatusBatch;
 import com.vibrent.drc.domain.ParticipantGenomicStatusPayload;
@@ -11,6 +14,7 @@ import com.vibrent.drc.scheduling.DRCParticipantGenomicsStatusFetchJob;
 import com.vibrent.drc.service.*;
 import com.vibrent.drc.service.impl.DRCBackendProcessorWrapperImpl;
 import com.vibrent.drc.service.impl.DRCParticipantGenomicsStatusServiceImpl;
+import com.vibrent.drc.service.impl.ParticipantServiceImpl;
 import com.vibrenthealth.drcutils.connector.HttpResponseWrapper;
 import com.vibrenthealth.drcutils.exception.DrcConnectorException;
 import com.vibrenthealth.drcutils.service.DRCBackendProcessorService;
@@ -26,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -38,6 +43,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
@@ -114,13 +120,14 @@ public class DRCParticipantGenomicsStatusFetchJobTest extends IntegrationTest {
     @Mock
     DRCParticipantGenomicsStatusFetchJob mockedDrcParticipantGenomicsStatusFetchJob;
 
+    private  Boolean genomicSchedulingWorkflow = true;
+
     @Before
     public void setUp() throws Exception {
         drcBackendProcessorWrapper = new DRCBackendProcessorWrapperImpl(externalApiRequestLogsService, drcBackendProcessorService);
         drcParticipantGenomicsStatusService = new DRCParticipantGenomicsStatusServiceImpl(systemPropertiesRepository, drcConfigService, participantGenomicStatusPayloadRepository, participantGenomicStatusBatchRepository, participantGenomicsStatusPayloadMapper, dataSharingMetricsService, drcBackendProcessorWrapper);
         ReflectionTestUtils.setField(drcParticipantGenomicsStatusService, "batchProcessingSize", 10);
-
-        drcParticipantGenomicsStatusFetchJob = new DRCParticipantGenomicsStatusFetchJob(drcParticipantGenomicsStatusService);
+        drcParticipantGenomicsStatusFetchJob = new DRCParticipantGenomicsStatusFetchJob(drcParticipantGenomicsStatusService, genomicSchedulingWorkflow);
     }
 
     @DisplayName("When DRC Report Ready Status Fetch JOB executed, " +
@@ -156,9 +163,13 @@ public class DRCParticipantGenomicsStatusFetchJobTest extends IntegrationTest {
 
     @DisplayName("When DRC Report Ready Status Fetch JOB executed," +
             "And encountered any exception " +
-            "Then verify JobExecutionException thrown.")
+            "Then verify Error logged.")
     @Test
     public void whenJobExecutesAndEncountersExceptionThenVerifyJobExecutionExceptionThrown() throws JobExecutionException, DrcConnectorException {
+        Logger logger = (Logger) LoggerFactory.getLogger(DRCParticipantGenomicsStatusServiceImpl.class);
+        ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
+        logger.addAppender(listAppender);
+
         String uriString = BASE_URL +
                 UriComponentsBuilder.fromUriString(DrcConstant.URL_GENOMICS_PARTICIPANT_STATUS)
                         .queryParam("start_date", "{startDate}")
@@ -171,7 +182,13 @@ public class DRCParticipantGenomicsStatusFetchJobTest extends IntegrationTest {
         Mockito.when(drcBackendProcessorService.sendRequest(uriString, null, RequestMethod.GET, null)).thenReturn(getDrcResponse());
         doThrow(TimeoutException.class).when(externalApiRequestLogsService).send(any(ExternalApiRequestLog.class));
 
-        assertThrows(JobExecutionException.class, () -> drcParticipantGenomicsStatusFetchJob.execute(context));
+        listAppender.start();
+        drcParticipantGenomicsStatusFetchJob.execute(context);
+        List<ILoggingEvent> logsList = listAppender.list;
+
+        assertEquals("ERROR", logsList.get(1).getLevel().toString());
+        assertEquals("DRC-Service: Exception while fetching {} from DRC ", logsList.get(1).getMessage());
+
 
     }
 

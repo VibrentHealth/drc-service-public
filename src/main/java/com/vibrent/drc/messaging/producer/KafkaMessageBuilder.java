@@ -21,7 +21,7 @@ public class KafkaMessageBuilder {
 
         MessageBuilder<T> messageBuilder = MessageBuilder.withPayload(payload);
         messageBuilder.setHeader(KafkaHeaders.TOPIC, topicName);
-        messageBuilder.setHeader(KafkaHeaders.MESSAGE_KEY, messageHeaderDto.getVxpMessageID());
+        messageBuilder.setHeader(KafkaHeaders.MESSAGE_KEY, String.valueOf(messageHeaderDto.getVxpUserID()));
         messageBuilder.setHeader(KafkaConstants.KAFKA_HEADER_MESSAGE_SPEC, vxpMessageSpec);
         messageBuilder.setHeader(KafkaConstants.KAFKA_HEADER_VERSION, messageHeaderDto.getVxpHeaderVersion());
         messageBuilder.setHeader(KafkaConstants.KAFKA_HEADER_ORIGINATOR, vxpOriginator);

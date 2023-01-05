@@ -1,6 +1,5 @@
 package com.vibrent.drc.messaging.consumer;
 
-import com.vibrent.drc.domain.OrderTrackingDetails;
 import com.vibrent.drc.dto.ExternalApiRequestLog;
 import com.vibrent.drc.exception.BusinessValidationException;
 import com.vibrent.drc.service.DRCSalivaryOrderService;
@@ -8,7 +7,6 @@ import com.vibrent.drc.service.ExternalApiRequestLogsService;
 import com.vibrent.drc.service.OrderTrackingDetailsService;
 import com.vibrent.drc.service.impl.FHIRSalivaryConverterUtility;
 import com.vibrent.drc.util.ExternalApiRequestLogUtil;
-import com.vibrent.drc.util.OrderStatusUtil;
 import com.vibrent.vxp.workflow.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -67,15 +65,13 @@ public class CreateTrackOrderResponseListener {
         if (createTrackOrderResponseDto == null || createTrackOrderResponseDto.getStatus() == null) {
             return false;
         }
-        StatusEnum statusEnum = createTrackOrderResponseDto.getStatus();
         String orderId = getOrderId(createTrackOrderResponseDto);
         if (StringUtils.isEmpty(orderId)) {
             log.warn("DRC Service: ORDER_ID identifier received as null in createTrackOrderResponseDto: {}", createTrackOrderResponseDto);
             return false;
         }
 
-        OrderTrackingDetails orderTrackingDetails = this.orderTrackingDetailsService.getOrderDetails(orderId);
-        return OrderStatusUtil.isStatusAfter(statusEnum, orderTrackingDetails);
+        return true;
     }
 
     private String getOrderId(CreateTrackOrderResponseDto createTrackOrderResponseDto) {

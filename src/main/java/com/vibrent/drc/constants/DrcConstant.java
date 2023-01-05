@@ -8,6 +8,7 @@ public final class DrcConstant {
 
     public static final String DEFAULT_START_DATE = "1970-01-01T00:00:00-00:00";
     public static final String URL_GENOMICS_PARTICIPANT_STATUS = "/GenomicOutreachV2";
+    public static final String URL_GENOMICS_PARTICIPANT_SCHEDULING = "/GenomicScheduling";
     public static final String DRC_EXTERNAL_EVENT = "DRC_GENOMICS_PARTICIPANT_STATUS";
 
     public static final String INTERNAL_ID = "internalId";

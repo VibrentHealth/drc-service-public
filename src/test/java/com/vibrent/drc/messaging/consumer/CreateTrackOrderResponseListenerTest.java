@@ -71,18 +71,6 @@ public class CreateTrackOrderResponseListenerTest {
     }
 
     @Test
-    @DisplayName("When Fulfillment track order response event received and Last message status is Shipped then verify event is not sent to DRC")
-    void testCreateTrackOrderResponseListenerWhenFullfilemtOrderReceived() throws Exception {
-        initializeOrderTrackingDetails();
-        when(orderTrackingDetailsService.getOrderDetails(orderIdString)).thenReturn(orderTrackingDetails);
-        CreateTrackOrderResponseDto createTrackOrderResponseDto = createTrackOrderResponseDTO();
-        createTrackOrderResponseDto.setStatus(StatusEnum.PENDING_SHIPMENT);
-        createTrackOrderResponseListener.listen(buildPayload(createTrackOrderResponseDto), buildMessageHeaders());
-
-        verify(drcSalivaryOrderService, times(0)).verifyAndSendCreateTrackOrderResponse(any(CreateTrackOrderResponseDto.class), any(MessageHeaderDto.class));
-    }
-
-    @Test
     @DisplayName("When track order response event received with Empty Identifiers then verify event is not sent to DRC")
     void testCreateTrackOrderResponseListenerWhenWithEmptyIdentifiers() throws Exception {
         CreateTrackOrderResponseDto createTrackOrderResponseDto = createTrackOrderResponseDTO();
@@ -104,15 +92,14 @@ public class CreateTrackOrderResponseListenerTest {
     }
 
     @Test
-    @DisplayName("When Shipped track order response event received and Last message status is Shipped then verify event is not sent to DRC")
+    @DisplayName("When Shipped track order response event received and Last message status is Shipped then verify event will sent to DRC again")
     void testCreateTrackOrderResponseListenerWhenShippedOrderReceived() throws Exception {
         initializeOrderTrackingDetails();
-        when(orderTrackingDetailsService.getOrderDetails(orderIdString)).thenReturn(orderTrackingDetails);
         CreateTrackOrderResponseDto createTrackOrderResponseDto = createTrackOrderResponseDTO();
         createTrackOrderResponseDto.setStatus(StatusEnum.SHIPPED);
         createTrackOrderResponseListener.listen(buildPayload(createTrackOrderResponseDto), buildMessageHeaders());
 
-        verify(drcSalivaryOrderService, times(0)).verifyAndSendCreateTrackOrderResponse(any(CreateTrackOrderResponseDto.class), any(MessageHeaderDto.class));
+        verify(drcSalivaryOrderService, times(1)).verifyAndSendCreateTrackOrderResponse(any(CreateTrackOrderResponseDto.class), any(MessageHeaderDto.class));
     }
 
     @Test

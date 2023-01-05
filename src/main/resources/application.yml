@@ -75,11 +75,13 @@ vibrent:
     supplyStatus:
       enabled: ${SUPPLY_STATUS_ENABLED:false}
     accountInfoUpdates:
-      enabled: ${ACCOUNT_INFO_UPDATES_ENABLED:false}
+      enabled: ${ACCOUNT_INFO_UPDATES_ENABLED:true}
     sync:
       retry:
         cron: ${DRC_UPDATE_INFO_SYNC_RETRY_CRON:0 0 0/1 1/1 * ? *}
         maxRetryCount: ${DRC_UPDATE_INFO_SYNC_MAX_RETRY_COUNT:10}
+    genomicSchedulingWorkflow:
+      enabled: ${GENOMIC_SCHEDULING_WORKFLOW_ENABLED:true}
 
     forms:
       basics:

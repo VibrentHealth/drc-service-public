@@ -22,7 +22,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class DRCBackendProcessorWrapperImpl implements DRCBackendProcessorWrapper {
 
-    public static final String ERROR_MSG_FAILED_TO_SEND_REQUEST_TO_DRC = "DRC-Service: Failed to send {} request to url {}. Error: {}";
+    public static final String ERROR_MSG_FAILED_TO_SEND_REQUEST_TO_DRC = "DRC-Service: Failed to send drc {} request to url {}. Error: {}";
 
     private final ExternalApiRequestLogsService externalApiRequestLogsService;
     private final DRCBackendProcessorService drcBackendProcessorService;

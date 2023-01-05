@@ -12,8 +12,12 @@ import com.vibrent.vxp.drc.dto.*;
 import com.vibrent.vxp.drc.resource.DrcApiController;
 import com.vibrent.vxp.push.DRCExternalEventDto;
 import com.vibrent.vxp.push.ExternalEventSourceEnum;
+import com.vibrenthealth.drcutils.service.impl.DRCConfigServiceImpl;
+import com.vibrenthealth.drcutils.service.impl.DRCRetryServiceImpl;
 import io.micrometer.core.instrument.Counter;
 import lombok.SneakyThrows;
+import org.joda.time.Duration;
+import org.joda.time.Instant;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,6 +33,7 @@ import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.OAuth2RestTemplate;
+import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -79,7 +84,6 @@ public class DrcServiceIntegrationTest extends IntegrationTest {
     @Autowired
     private ParticipantService participantService;
 
-    @Mock
     private OAuth2AccessToken oAuth2AccessToken;
 
     @MockBean
@@ -129,12 +133,16 @@ public class DrcServiceIntegrationTest extends IntegrationTest {
 
     @Before
     public void setUp() {
+        oAuth2AccessToken = new DefaultOAuth2AccessToken("access_token");
+        ((DefaultOAuth2AccessToken)oAuth2AccessToken).setExpiration(Instant.now().plus(Duration.standardSeconds(300)).toDate());
         mockMvc = MockMvcBuilders.standaloneSetup(drcApiController).setControllerAdvice(DrcExceptionHandler.class).build();
         drcNotificationRequestDTO = buildDrcNotificationRequestDTO();
 
         ReflectionTestUtils.setField(participantService, "keycloakDrcInternalCredentialsRestTemplate", keycloakDrcInternalCredentialsRestTemplate);
+        ReflectionTestUtils.setField(participantService, "retryService", new DRCRetryServiceImpl(new DRCConfigServiceImpl(false, "")));
         ReflectionTestUtils.setField(participantService, "restClientUtil", restClientUtil);
         ReflectionTestUtils.setField(drcServiceApiDelegate, "dataSharingMetricsService", dataSharingMetricsService);
+
     }
 
     @WithMockUser(roles = "DRC")

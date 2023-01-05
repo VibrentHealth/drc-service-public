@@ -213,6 +213,32 @@ public class ExternalApiRequestLogUtil {
         return externalApiRequestLogsDTO;
     }
 
+    public static ExternalApiRequestLog createExternalApiRequestLogForResponseReceived(MessageHeaderDto headers, FulfillmentResponseDto fulfillmentResponseDto, String topic, String description, Integer statusCode, ParticipantDto participantDto) {
+        Preconditions.checkArgument(fulfillmentResponseDto != null, INPUT_DTO_MUST_BE_PROVIDED);
+        Preconditions.checkArgument(description != null, DESCRIPTION_MUST_BE_PROVIDED);
+        Long internalId = null;
+        String externalId = null;
+        ExternalEventType eventType = null;
+        ExternalApiRequestLog externalApiRequestLogsDTO = new ExternalApiRequestLog();
+
+        if (participantDto != null) {
+            internalId = participantDto.getVibrentID();
+            externalId = String.valueOf(participantDto.getExternalID());
+        }
+
+        eventType = ExternalEventType.FULFILLMENT_RESPONSE_RECEIVED;
+        externalApiRequestLogsDTO.setService(ExternalServiceType.FULFILLMENT_SERVICE);
+        externalApiRequestLogsDTO.setEventSource(ExternalEventSource.FULFILLMENT_SERVICE);
+        externalApiRequestLogsDTO.setRequestBody("");
+        externalApiRequestLogsDTO.setResponseBody(PrettyPrintUtil.prettyPrint(fulfillmentResponseDto));
+
+        populateExternalLogDTO(externalApiRequestLogsDTO, RequestMethod.GET, internalId, externalId, PrettyPrintUtil.prettyPrint(headers), statusCode);
+        externalApiRequestLogsDTO.setEventType(eventType);
+        externalApiRequestLogsDTO.setDescription(description);
+        externalApiRequestLogsDTO.setRequestUrl(StringUtils.isEmpty(topic) ? "" : KAFKA_TOPIC + topic);
+        return externalApiRequestLogsDTO;
+    }
+
 
     /**
      * Create ExternalApiRequestLog for received track delivery response

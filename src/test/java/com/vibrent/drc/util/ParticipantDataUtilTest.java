@@ -412,7 +412,6 @@ class ParticipantDataUtilTest {
         dto.setLine2("line2 " + type);
         dto.setPostalCode("333222");
         dto.setState("state");
-        dto.setUpdatedOn(System.currentTimeMillis());
         dto.setValidated(true);
         return dto;
     }

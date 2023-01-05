@@ -7,21 +7,31 @@ import com.vibrent.drc.enumeration.DRCSupplyMessageStatusType;
 import com.vibrent.drc.exception.BusinessValidationException;
 import com.vibrent.drc.service.ApiService;
 import com.vibrent.drc.service.GenotekService;
+import com.vibrent.fulfillment.dto.OrderDetailsDTO;
+import com.vibrent.fulfillment.dto.ProductDTO;
+import com.vibrent.fulfillment.dto.TrackingDetailsDTO;
+import com.vibrent.fulfillment.dto.TrackingTypeEnum;
+import com.vibrent.genotek.vo.OrderInfoDTO;
 import com.vibrent.vxp.workflow.*;
+import lombok.SneakyThrows;
 import org.hl7.fhir.r4.model.SupplyDelivery;
 import org.hl7.fhir.r4.model.SupplyRequest;
 import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,6 +46,7 @@ class FHIRSalivaryConverterUtilityTest {
     private static final long VIBRENT_ID = 1000L;
     private FHIRSalivaryConverterUtility fhirSalivaryConverterUtility;
     private UserDTO userDTO;
+    public static final String BIOBANK_ADDRESS_API_RESPONSE = "{\"city\": \"Rochester\", \"line\": [\"Mayo Clinic Laboratories\", \"3050 Superior Drive NW\"], \"state\": \"MN\", \"postalCode\": \"55901\"}";
 
     @Mock
     private ApiService apiService;
@@ -86,7 +97,6 @@ class FHIRSalivaryConverterUtilityTest {
     @Test
     void setParticipantAddress() {
         ParticipantDto participantDto = getParticipantDto();
-        when(this.apiService.getUserDTO(VIBRENT_ID)).thenReturn(userDTO);
 
         //Code under test
         fhirSalivaryConverterUtility.setParticipantAddress(participantDto);
@@ -101,10 +111,169 @@ class FHIRSalivaryConverterUtilityTest {
         assertEquals("AZ", addressDto.getState());
     }
 
+
+    @Test
+    @DisplayName("When null Fulfillment order response received " +
+            "then throw BusinessValidationException")
+    public void testFulfillmentOrderToSupplyRequestFHIRConverterMissingCreateOrderMessage() {
+        //EXPECT Business validation on missing vxp requests
+        MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
+        messageHeaderDto.setVxpWorkflowName(WorkflowNameEnum.FULFILLMENT_KIT_ORDER);
+        Assert.assertThrows("FHIRSalivaryConverterUtility: supplyRequest cannot convert missing request", BusinessValidationException.class,
+                () -> fhirSalivaryConverterUtility.fulfillmentOrderToSupplyRequestFHIRConverter(null, messageHeaderDto, SupplyRequest.SupplyRequestStatus.ACTIVE, "100", getParticipantDto()));
+    }
+
+    @Test
+    @DisplayName("When header dto is missing " +
+            "then throw BusinessValidationException")
+    public void testFulfillmentOrderToSupplyRequestFHIRConverterMissingHeaderDto() {
+        //EXPECT Business validation on missing vxp requests
+        Assert.assertThrows("FHIRSalivaryConverterUtility: supplyRequest cannot convert missing request", BusinessValidationException.class,
+                () -> fhirSalivaryConverterUtility.fulfillmentOrderToSupplyRequestFHIRConverter(createFulfillmentResponseDto(), null, SupplyRequest.SupplyRequestStatus.ACTIVE, "100", getParticipantDto()));
+    }
+
+    @Test
+    @DisplayName("When Fulfillment order response received with invalid work fow type " +
+            "then throw BusinessValidationException")
+    void testFulfillmentOrderToSupplyRequestFHIRConverterWithInvalidWorkFlow() {
+        MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
+        //EXPECT Business validation on wrong work flow type
+        Assert.assertThrows("FHIRSalivaryConverterUtility: supplyRequest incorrect workflow name for order type", BusinessValidationException.class,
+                () -> fhirSalivaryConverterUtility.fulfillmentOrderToSupplyRequestFHIRConverter(createFulfillmentResponseDto(), messageHeaderDto, SupplyRequest.SupplyRequestStatus.ACTIVE, "100", getParticipantDto()));
+    }
+
+    @Test
+    @DisplayName("When Fulfillment order response received with status SHIPPED and message header " +
+            "then process request and provide supply request")
+    @SneakyThrows
+    void testFulfillmentOrderToSupplyRequestFHIRConverterForShippedStatus() {
+        MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
+        messageHeaderDto.setVxpWorkflowName(WorkflowNameEnum.FULFILLMENT_KIT_ORDER);
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
+
+        SupplyRequest supplyRequest = fhirSalivaryConverterUtility.fulfillmentOrderToSupplyRequestFHIRConverter(createFulfillmentResponseDto(), messageHeaderDto, SupplyRequest.SupplyRequestStatus.ACTIVE, "100", getParticipantDto());
+
+        assertNotNull(supplyRequest);
+        assertEquals(new BigDecimal(1),supplyRequest.getQuantity().getValue());
+        assertEquals(SupplyRequest.SupplyRequestStatus.ACTIVE,supplyRequest.getStatus());
+        assertEquals(3,supplyRequest.getExtension().size());
+        assertEquals(3,supplyRequest.getContained().size());
+        assertEquals(2,supplyRequest.getIdentifier().size());
+        assertEquals("100",supplyRequest.getIdentifier().get(0).getValue());
+    }
+
+    @Test
+    @DisplayName("When null tracking details response received  " +
+            "then throw BusinessValidationException")
+    void testFulfillmentOrderToSupplyDeliveryFHIRConverterMissingCreateOrderMessage() {
+        //EXPECT Business validation on missing vxp requests
+        MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
+        messageHeaderDto.setVxpWorkflowName(WorkflowNameEnum.FULFILLMENT_KIT_ORDER);
+        Assert.assertThrows("FHIRSalivaryConverterUtility: supplyDelivery cannot convert missing request", BusinessValidationException.class,
+                () -> fhirSalivaryConverterUtility.fulfillmentOrderToSupplyDeliveryFHIRConverter(createFulfillmentResponseDto(),null, getParticipantDto(), SupplyDelivery.SupplyDeliveryStatus.COMPLETED, DRCSupplyMessageStatusType.PARTICIPANT_DELIVERY,messageHeaderDto,100L));
+    }
+
+    @Test
+    @DisplayName("When header dto is missing " +
+            "then throw BusinessValidationException")
+    void testFulfillmentOrderToSupplyDeliveryFHIRConverterMissingHeaderDto() {
+        TrackingDetailsDTO trackingDetailsDto= getTrackingDetailsDto("233","PARTICIPANT_DELIVERED",TrackingTypeEnum.PARTICIPANT_TRACKING,"usps",232324334L,7676759L);
+        //EXPECT Business validation on missing vxp requests
+        Assert.assertThrows("FHIRSalivaryConverterUtility: supplyDelivery cannot convert missing request", BusinessValidationException.class,
+                () -> fhirSalivaryConverterUtility.fulfillmentOrderToSupplyDeliveryFHIRConverter(createFulfillmentResponseDto(), trackingDetailsDto, getParticipantDto(), SupplyDelivery.SupplyDeliveryStatus.COMPLETED, DRCSupplyMessageStatusType.PARTICIPANT_DELIVERY,null,100L));
+    }
+
+    @Test
+    @DisplayName("When Fulfillment order response received with invalid work fow type " +
+            "then throw BusinessValidationException")
+    void testFulfillmentOrderToSupplyDeliveryFHIRConverterWithInvalidWorkFlow() {
+        MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
+        TrackingDetailsDTO trackingDetailsDto= getTrackingDetailsDto("233","PARTICIPANT_DELIVERED",TrackingTypeEnum.PARTICIPANT_TRACKING,"usps",232324334L,7676759L);
+        //EXPECT Business validation on wrong work flow type
+        Assert.assertThrows("FHIRSalivaryConverterUtility: supplyDelivery incorrect workflow name for order type", BusinessValidationException.class,
+                () -> fhirSalivaryConverterUtility.fulfillmentOrderToSupplyDeliveryFHIRConverter(createFulfillmentResponseDto(), trackingDetailsDto, getParticipantDto(), SupplyDelivery.SupplyDeliveryStatus.COMPLETED, DRCSupplyMessageStatusType.PARTICIPANT_DELIVERY,null,100L));
+    }
+
+    @Test
+    @DisplayName("When Fulfillment order response received with status PARTICIPANT_DELIVERED and message header " +
+            "then process request and provide supply delivery")
+    @SneakyThrows
+    void testFulfillmentOrderToSupplyDeliveryFHIRConverterForParticipantStatus() {
+        MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
+        messageHeaderDto.setVxpWorkflowName(WorkflowNameEnum.FULFILLMENT_KIT_ORDER);
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
+
+        TrackingDetailsDTO trackingDetailsDto= getTrackingDetailsDto("233","PARTICIPANT_DELIVERED",TrackingTypeEnum.PARTICIPANT_TRACKING,"usps",232324334L,7676759L);
+        SupplyDelivery supplyDelivery = fhirSalivaryConverterUtility.fulfillmentOrderToSupplyDeliveryFHIRConverter(createFulfillmentResponseDto(), trackingDetailsDto, getParticipantDto(), SupplyDelivery.SupplyDeliveryStatus.COMPLETED, DRCSupplyMessageStatusType.PARTICIPANT_DELIVERY,messageHeaderDto,100L);
+
+        assertNotNull(supplyDelivery);
+        assertEquals(SupplyDelivery.SupplyDeliveryStatus.COMPLETED,supplyDelivery.getStatus());
+        assertEquals(4,supplyDelivery.getExtension().size());
+        assertEquals(3,supplyDelivery.getContained().size());
+        assertEquals(1,supplyDelivery.getIdentifier().size());
+        assertEquals("233",supplyDelivery.getIdentifier().get(0).getValue());
+    }
+
+    @Test
+    @DisplayName("When Fulfillment order response received with status PARTICIPANT_IN_TRANSIT but no mailing address " +
+            "then process request and provide supply delivery")
+    @SneakyThrows
+    void testFulfillmentOrderToSupplyDeliveryFHIRConverterForParticipantInTransitStatus() {
+        MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
+        messageHeaderDto.setVxpWorkflowName(WorkflowNameEnum.FULFILLMENT_KIT_ORDER);
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
+
+        var participant = getParticipantDto();
+        participant.setAddresses(null);
+        TrackingDetailsDTO trackingDetailsDto= getTrackingDetailsDto("233","PARTICIPANT_IN_TRANSIT",TrackingTypeEnum.PARTICIPANT_TRACKING,"usps",232324334L,7676759L);
+        SupplyDelivery supplyDelivery = fhirSalivaryConverterUtility.fulfillmentOrderToSupplyDeliveryFHIRConverter(createFulfillmentResponseDto(), trackingDetailsDto, participant, SupplyDelivery.SupplyDeliveryStatus.INPROGRESS, DRCSupplyMessageStatusType.PARTICIPANT_SHIPPED,messageHeaderDto,100L);
+
+        assertNotNull(supplyDelivery);
+        assertEquals(SupplyDelivery.SupplyDeliveryStatus.INPROGRESS,supplyDelivery.getStatus());
+        assertEquals(4,supplyDelivery.getExtension().size());
+        assertEquals(3,supplyDelivery.getContained().size());
+        assertEquals(1,supplyDelivery.getIdentifier().size());
+        assertEquals("233",supplyDelivery.getIdentifier().get(0).getValue());
+    }
+
+    @Test
+    @DisplayName("When Fulfillment order response received with status RETURN_IN_TRANSIT and message header " +
+            "then process request and provide supply delivery")
+    @SneakyThrows
+    void testFulfillmentOrderToSupplyDeliveryFHIRConverterForReturnStatus() {
+        MessageHeaderDto messageHeaderDto = createMessageHeaderDTO();
+        messageHeaderDto.setVxpWorkflowName(WorkflowNameEnum.FULFILLMENT_KIT_ORDER);
+        when(this.genotekService.getDeviceDetails(anyLong())).thenReturn(buildOrderInfoDTO());
+        when(this.apiService.getBioBankAddress()).thenReturn(BIOBANK_ADDRESS_API_RESPONSE);
+
+        TrackingDetailsDTO trackingDetailsDto= getTrackingDetailsDto("8897","RETURN_IN_TRANSIT",TrackingTypeEnum.RETURN_TRACKING,"usps",232324334L,7676759L);
+        SupplyDelivery supplyDelivery = fhirSalivaryConverterUtility.fulfillmentOrderToSupplyDeliveryFHIRConverter(createFulfillmentResponseDto(), trackingDetailsDto, getParticipantDto(), SupplyDelivery.SupplyDeliveryStatus.INPROGRESS, DRCSupplyMessageStatusType.BIOBANK_SHIPPED,messageHeaderDto,100L);
+
+        assertNotNull(supplyDelivery);
+        assertEquals(SupplyDelivery.SupplyDeliveryStatus.INPROGRESS,supplyDelivery.getStatus());
+        assertEquals(4,supplyDelivery.getExtension().size());
+        assertEquals(3,supplyDelivery.getContained().size());
+        assertEquals(1,supplyDelivery.getIdentifier().size());
+        assertEquals("8897",supplyDelivery.getIdentifier().get(0).getValue());
+    }
+
     private ParticipantDto getParticipantDto() {
         ParticipantDto participantDto = new ParticipantDto();
         participantDto.setVibrentID(VIBRENT_ID);
+        participantDto.setAddresses(getParticipantAddress());
         return participantDto;
+    }
+
+    private List<AddressDto> getParticipantAddress() {
+        List<AddressDto> addressDtoList = new ArrayList<>();
+        AddressDto addressDto = new AddressDto();
+        addressDto.setCity("Mesa");
+        addressDto.setLine1("6644 E Baywood Ave");
+        addressDto.setPostalCode("85206");
+        addressDto.setState("AZ");
+        addressDto.setAddressType(TypeOfAddressEnum.HOME_ADDRESS);
+        addressDtoList.add(addressDto);
+        return addressDtoList;
     }
 
     private void initializeUserDTO() {
@@ -180,4 +349,44 @@ class FHIRSalivaryConverterUtilityTest {
         mailingAddress.add(addressDto);
         return mailingAddress;
     }
+
+    private TrackingDetailsDTO getTrackingDetailsDto(String trackingId, String status, TrackingTypeEnum trackingType, String carrierCode, Long deliveredOn, Long shippedOn) {
+        TrackingDetailsDTO trackingDetailsDTO = new TrackingDetailsDTO();
+        trackingDetailsDTO.setTrackingId(trackingId);
+        trackingDetailsDTO.setStatus(status);
+        trackingDetailsDTO.setTrackingType(trackingType);
+        trackingDetailsDTO.setCarrierCode(carrierCode);
+        trackingDetailsDTO.setDeliveredOn(deliveredOn);
+        trackingDetailsDTO.setShippedOn(shippedOn);
+        return trackingDetailsDTO;
+    }
+
+    private FulfillmentResponseDto createFulfillmentResponseDto() {
+        FulfillmentResponseDto fulfillmentResponseDto = new FulfillmentResponseDto();
+
+        fulfillmentResponseDto.setStatus(OrderStatusEnum.CREATED);
+        fulfillmentResponseDto.setProgramID(123654L);
+        fulfillmentResponseDto.setVibrentID(136524L);
+
+        OrderDto orderDto = new OrderDto();
+        orderDto.setFulfillmentOrderID(100L);
+        orderDto.setQuantity(1L);
+        fulfillmentResponseDto.setOrder(orderDto);
+
+        Map<String,String> attributeMap = Map.of(
+                "FULFILLMENT_ID","100",
+                "BARCODE_1D","888999"
+        );
+        fulfillmentResponseDto.setAttributes(attributeMap);
+        return fulfillmentResponseDto;
+    }
+
+    private OrderInfoDTO buildOrderInfoDTO() {
+        OrderInfoDTO orderInfoDTO = new OrderInfoDTO();
+        orderInfoDTO.setOrderType("Salivary Order");
+        orderInfoDTO.setItemCode("4081");
+        orderInfoDTO.setItemName("OGD-500.015");
+        return orderInfoDTO;
+    }
+
 }

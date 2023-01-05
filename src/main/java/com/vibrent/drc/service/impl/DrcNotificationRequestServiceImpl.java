@@ -60,11 +60,7 @@ public class DrcNotificationRequestServiceImpl implements DrcNotificationRequest
      * @return
      */
     private long getVibrentID(String participantId) {
-        Long vibrentId = this.participantService.getVibrentId(participantId);
-        if(vibrentId == null) {
-            throw new BusinessValidationException("DRC Service: Unable to resolve VibrentID for the given externalId: " + participantId);
-        }
-        return vibrentId;
+        return this.participantService.getVibrentId(participantId);
     }
 
 }

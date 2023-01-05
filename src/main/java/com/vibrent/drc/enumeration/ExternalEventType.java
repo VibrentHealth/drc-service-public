@@ -7,6 +7,7 @@ public enum ExternalEventType {
     DRC_SUPPLY_STATUS,
     DRC_GENOMICS_RESULT_STATUS,
     DRC_FORM_ENTRY,
+    DRC_GENOMICS_SCHEDULING_STATUS,
 
     //Genetek
     GENOTEK_CREATE_ORDER_RESPONSE_RECEIVED,
@@ -20,5 +21,8 @@ public enum ExternalEventType {
 
     //DRC retrieve user info
     DRC_RETRIEVE_USER_INFO,
-    DRC_UPDATE_USER
+    DRC_UPDATE_USER,
+
+    //Fulfillment
+    FULFILLMENT_RESPONSE_RECEIVED
 }

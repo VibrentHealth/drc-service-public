@@ -3,6 +3,7 @@ package com.vibrent.drc.service.impl;
 import com.vibrent.drc.cache.VibrentIdCacheManager;
 import com.vibrent.drc.service.ParticipantService;
 import com.vibrent.drc.util.RestClientUtil;
+import com.vibrenthealth.drcutils.service.DRCRetryService;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -53,12 +54,16 @@ public class ParticipantServiceImplIT {
 
         private String apiUrl = "http://localhost:8080";
 
+        @Autowired
+        DRCRetryService retryService;
+
         @Bean
         ParticipantService participantService() {
             when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
+            when(oAuth2AccessToken.getExpiresIn()).thenReturn(300);
             when(restClientUtil.postRequest(anyString(), any())).thenReturn("{\"requestedIdType\":\"VIBRENT_ID\",\"responseList\":{\"P324234\":{\"VIBRENT_ID\":\"1\",\"EXTERNAL_ID\": \"P324234\"}}}");
 
-            return new ParticipantServiceImpl(apiUrl, keycloakApiClientCredentialsRestTemplate, restClientUtil, vibrentIdCacheManager);
+            return new ParticipantServiceImpl(apiUrl, keycloakApiClientCredentialsRestTemplate, restClientUtil, vibrentIdCacheManager, retryService, null);
         }
     }
 

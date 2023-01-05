@@ -1,28 +1,33 @@
 package com.vibrent.drc.service.impl;
 
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import com.vibrent.drc.cache.VibrentIdCacheManager;
 import com.vibrent.drc.dto.UserSearchResponseDTO;
 import com.vibrent.drc.enumeration.UserInfoType;
 import com.vibrent.drc.exception.BusinessProcessingException;
+import com.vibrent.drc.exception.BusinessValidationException;
 import com.vibrent.drc.exception.HttpClientValidationException;
-import com.vibrent.drc.service.DataSharingMetricsService;
 import com.vibrent.drc.service.ParticipantService;
 import com.vibrent.drc.util.RestClientUtil;
-import io.micrometer.core.instrument.Counter;
+import com.vibrenthealth.drcutils.service.DRCConfigService;
+import com.vibrenthealth.drcutils.service.DRCRetryService;
+import com.vibrenthealth.drcutils.service.impl.DRCRetryServiceImpl;
+import lombok.SneakyThrows;
+import org.joda.time.Duration;
+import org.joda.time.Instant;
+import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.client.OAuth2ClientContext;
 import org.springframework.security.oauth2.client.OAuth2RestTemplate;
-import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.springframework.security.oauth2.common.DefaultOAuth2AccessToken;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.util.Collections;
 import java.util.List;
@@ -32,8 +37,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ParticipantServiceImplTest {
@@ -48,17 +52,24 @@ class ParticipantServiceImplTest {
     @Mock
     private RestClientUtil restClientUtil;
 
-    @Mock
-    private OAuth2AccessToken oAuth2AccessToken;
+    private DefaultOAuth2AccessToken oAuth2AccessToken;
 
     @Mock
     private VibrentIdCacheManager vibrentIdCacheManager;
 
+    @Mock
+    OAuth2ClientContext oAuth2ClientContext;
+
     @BeforeEach
     void setUp() {
-        participantService = new ParticipantServiceImpl(API_URL, keycloakApiClientCredentialsRestTemplate, restClientUtil, vibrentIdCacheManager);
+        oAuth2AccessToken = new DefaultOAuth2AccessToken("access token");
+        oAuth2AccessToken.setExpiration(Instant.now().plus(Duration.standardSeconds(300)).toDate());
+        DRCRetryService retryService = new DRCRetryServiceImpl(getDrcConfigService());
+        participantService = new ParticipantServiceImpl(API_URL, keycloakApiClientCredentialsRestTemplate, restClientUtil, vibrentIdCacheManager, retryService, "401,403,500,503");
     }
 
+
+    @SneakyThrows
     @Test
     void getParticipantsByVibrentIds() {
         when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
@@ -75,6 +86,31 @@ class ParticipantServiceImplTest {
         assertEquals(2, userInfo.size());
         assertEquals("v1", userInfo.get(UserInfoType.VIBRENT_ID));
         assertEquals("p1", userInfo.get(UserInfoType.EXTERNAL_ID));
+    }
+
+    @SneakyThrows
+    @Test
+    void getParticipantsByVibrentIdsWithException() {
+        when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
+        when(restClientUtil.postRequest(anyString(), any())).thenThrow(new RuntimeException());
+
+        Assert.assertThrows(
+                RuntimeException.class,
+                () -> participantService.getParticipantsByVibrentIds(Collections.singletonList("v1")));
+
+    }
+
+    @SneakyThrows
+    @Test
+    void getParticipantsByVibrentIdsWithExceptionForRetry() {
+        when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
+        when(restClientUtil.postRequest(anyString(), any())).thenThrow(new HttpStatusCodeException(HttpStatus.INTERNAL_SERVER_ERROR) {
+        });
+
+        Assert.assertThrows(
+                RuntimeException.class,
+                () -> participantService.getParticipantsByVibrentIds(Collections.singletonList("v1")));
+
     }
 
     @DisplayName("when API invoke to retrieve User Info And received null" +
@@ -110,6 +146,18 @@ class ParticipantServiceImplTest {
                 java.util.Optional.of("23012021"), java.util.Optional.of("23012021"), java.util.Optional.of(1), java.util.Optional.of(2)));
     }
 
+    @DisplayName("when API invoke to retrieve User Info And received other client errors" +
+            "Then Verify Retry execute")
+    @Test
+    void getParticipants_throwsHttpStatusCodeException() {
+        when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
+        when(restClientUtil.postRequest(anyString(), any())).thenThrow(new HttpStatusCodeException(HttpStatus.INTERNAL_SERVER_ERROR) {
+        });
+
+        assertThrows(RuntimeException.class, () -> participantService.getParticipants(Collections.singletonList("v1"), Collections.singletonList("d1"),
+                java.util.Optional.of("23012021"), java.util.Optional.of("23012021"), java.util.Optional.of(1), java.util.Optional.of(2)));
+    }
+
     @Test
     void getParticipantsByDrcIds() {
         when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
@@ -129,6 +177,38 @@ class ParticipantServiceImplTest {
     }
 
     @Test
+    void getParticipantsByDrcIdsWithException() {
+        when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
+        when(restClientUtil.postRequest(anyString(), any())).thenThrow(new RuntimeException());
+
+        Assert.assertThrows(
+                RuntimeException.class,
+                () -> participantService.getParticipantsByDrcIds(Collections.singletonList("p1")));
+    }
+
+    @Test
+    void getParticipantsByDrcIdsWithExceptionRetry() {
+        when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
+        when(restClientUtil.postRequest(anyString(), any())).thenThrow(new HttpStatusCodeException(HttpStatus.INTERNAL_SERVER_ERROR) {
+        });
+
+        Assert.assertThrows(
+                RuntimeException.class,
+                    () -> participantService.getParticipantsByDrcIds(Collections.singletonList("p1")));
+    }
+
+    @Test
+    void getParticipantsByDrcIdsWithAuthorizationException() {
+        when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
+        when(restClientUtil.postRequest(anyString(), any())).thenThrow(new ResourceAccessException("401"));
+
+        Assert.assertThrows(
+                RuntimeException.class,
+                () -> participantService.getParticipantsByDrcIds(Collections.singletonList("p1")));
+    }
+
+
+    @Test
     void testGetVibrentIdByDrcId() {
         when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
         when(restClientUtil.postRequest(anyString(), any())).thenReturn("{\"results\":[{\"VIBRENT_ID\":\"1\",\"EXTERNAL_ID\": \"p1\"}]}");
@@ -143,7 +223,7 @@ class ParticipantServiceImplTest {
         when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
         when(restClientUtil.postRequest(anyString(), any())).thenReturn("{\"results\":[]}");
 
-        assertNull(participantService.getVibrentId("p1"));
+        assertThrows(BusinessValidationException.class, ()->participantService.getVibrentId("p1"));
     }
 
     @DisplayName("When API invoke to retrieve User Info And received empty participant list from API" +
@@ -153,14 +233,62 @@ class ParticipantServiceImplTest {
         Set<String> externalId = Collections.singleton("p1");
         when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(oAuth2AccessToken);
         when(restClientUtil.postRequest(anyString(), any())).thenReturn("{\"results\":[]}");
-        Logger logger = (Logger) LoggerFactory.getLogger(ParticipantServiceImpl.class);
-        ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
-        logger.addAppender(listAppender);
-        listAppender.start();
         participantService.fetchAndCacheVibrentIds(externalId);
-        List<ILoggingEvent> logsList = listAppender.list;
-        assertEquals("WARN", logsList.get(1).getLevel().toString());
-        assertEquals("DRC Service: Couldn't fetch VibrentID from API for given externalIDs", logsList.get(1).getMessage());
+        verify(vibrentIdCacheManager, times(0)).addVibrentIdToCache(anyString(), anyLong());
     }
 
+    @SneakyThrows
+    @Test
+    void whenAccessTokenExpiryTimeIsLessThan30SecThenVerifyLatestAccessTokenFetched() {
+        DefaultOAuth2AccessToken tempOAuth2AccessToken = new DefaultOAuth2AccessToken("access token");
+        tempOAuth2AccessToken.setExpiration(Instant.now().plus(Duration.standardSeconds(5)).toDate());
+        when(keycloakApiClientCredentialsRestTemplate.getAccessToken()).thenReturn(tempOAuth2AccessToken).thenReturn(oAuth2AccessToken);
+        when(keycloakApiClientCredentialsRestTemplate.getOAuth2ClientContext()).thenReturn(oAuth2ClientContext);
+        when(restClientUtil.postRequest(anyString(), any())).thenReturn("{\"results\":[{\"VIBRENT_ID\":\"v1\",\"EXTERNAL_ID\": \"p1\"}]}");
+
+        UserSearchResponseDTO userSearchResponseDTO = participantService.getParticipantsByVibrentIds(Collections.singletonList("v1"));
+        assertNotNull(userSearchResponseDTO);
+        verify(keycloakApiClientCredentialsRestTemplate, times(2)).getAccessToken();
+    }
+
+
+
+    private DRCConfigService  getDrcConfigService() {
+        return new DRCConfigService() {
+            @Override
+            public boolean isRunPostProcessing() {
+                return false;
+            }
+
+            @Override
+            public String getDrcApiBaseUrl() {
+                return null;
+            }
+
+            @Override
+            public long getRetryNum() {
+                return 3L;
+            }
+
+            @Override
+            public long getRetryMaxInterval() {
+                return 30L;
+            }
+
+            @Override
+            public long getRetryStartingRetryDelayInterval() {
+                return 1L;
+            }
+
+            @Override
+            public int getRetryStartingOnWhichAttempt() {
+                return 2;
+            }
+
+            @Override
+            public boolean isDrcTestEnvironment() {
+                return false;
+            }
+        };
+    }
 }

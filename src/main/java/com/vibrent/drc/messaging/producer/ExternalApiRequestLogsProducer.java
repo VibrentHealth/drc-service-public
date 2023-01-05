@@ -62,6 +62,7 @@ public class ExternalApiRequestLogsProducer implements MessageProducer<ExternalA
                 .withPayload(msg)
                 .setHeader(KafkaHeaders.TOPIC, topicName)
                 .setHeader("Ext-Log-Key-Header", key)
+                .setHeader(KafkaHeaders.MESSAGE_KEY, String.valueOf(msg.getInternalId()))
                 .build();
 
         kafkaTemplate.send(message)

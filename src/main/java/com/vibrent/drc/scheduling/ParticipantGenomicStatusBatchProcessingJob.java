@@ -51,10 +51,10 @@ public class ParticipantGenomicStatusBatchProcessingJob implements Job {
                                     dataSharingMetricsService.incrementGenomicsStatusMessagesSentCounter();
                                 }
 
+                                participantGenomicStatusBatchProcessingService.updateBatchStatus(ParticipantGenomicStatusBatch.newInstance(genomicStatusBatch), ExternalGenomicPayloadProcessingStatus.PROCESSING);
                             } catch (IOException e) {
                                 log.error("DRC: Exception while converting DRC payload: {}", e);
                             }
-                            participantGenomicStatusBatchProcessingService.updateBatchStatus(ParticipantGenomicStatusBatch.newInstance(genomicStatusBatch), ExternalGenomicPayloadProcessingStatus.PROCESSING);
                         }
                 );
 

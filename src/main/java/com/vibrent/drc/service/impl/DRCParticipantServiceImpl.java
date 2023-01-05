@@ -62,14 +62,16 @@ public class DRCParticipantServiceImpl implements DRCParticipantService {
             if (accountInfoUpdateEventDto == null || StringUtils.isEmpty(accountInfoUpdateEventDto.getExternalID()) ||
                     accountInfoUpdateEventDto.getParticipant() == null || accountInfoUpdateEventDto.getParticipant().getTestUser() == null ||
                     accountInfoUpdateEventDto.getParticipant().getTestUser() == Boolean.FALSE) {
-                log.info("DRC Service: UserId is null or participantId is null or test user flag is null or false. Cannot patch participant with DRC");
+                log.debug("DRC Service: UserId is null or participantId is null or test user flag is null or false. Cannot patch participant with DRC");
                 return false;
             }
 
             Participant participant = new Participant();
             participant.setTestParticipant(accountInfoUpdateEventDto.getParticipant().getTestUser());
             participant.setParticipantId(accountInfoUpdateEventDto.getExternalID());
-            return retryService.executeWithRetry(() -> patchParticipantInternal(accountInfoUpdateEventDto.getVibrentID(), participant));
+            Boolean isSuccess = retryService.executeWithRetry(() -> patchParticipantInternal(accountInfoUpdateEventDto.getVibrentID(), participant));
+            log.info("DRC service: Request is send successfully for test userId: {} ",participant.getParticipantId());
+            return isSuccess;
         } catch (Exception e) {
             log.warn("DRC Service: Error while calling DRC endpoint for patching user", e);
             return false;

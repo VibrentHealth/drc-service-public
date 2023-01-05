@@ -45,6 +45,7 @@ public class OrderTrackingDetails extends IdGeneratorAbstract {
         NONE,
         ORDER_ID,
         PARTICIPANT_TRACKING_ID,
-        RETURN_TRACKING_ID
+        RETURN_TRACKING_ID,
+        FULFILLMENT_ID
     }
 }

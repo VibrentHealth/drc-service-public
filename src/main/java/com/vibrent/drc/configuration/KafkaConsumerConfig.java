@@ -1,7 +1,6 @@
 package com.vibrent.drc.configuration;
 
 import com.vibrent.drc.constants.KafkaConstants;
-import com.vibrent.vxp.push.AccountInfoUpdateEventDto;
 import com.vibrent.vxp.workflow.MessageSpecificationEnum;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -111,16 +110,16 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public ConsumerFactory<String, AccountInfoUpdateEventDto> consumerFactoryAccountInfoUpdateEventListener() {
+    public ConsumerFactory<String, byte[]> consumerFactoryAccountInfoUpdateEventListener() {
         Map<String, Object> configProps = this.getConfigProps(DRC_ACCOUNT_INFO_UPDATE_LISTENER_GROUP_ID);
         configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
         configProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, KafkaConstants.LATEST);
-        return new DefaultKafkaConsumerFactory<>(configProps, new StringDeserializer(), getJsonDeserializer(AccountInfoUpdateEventDto.class));
+        return new DefaultKafkaConsumerFactory<>(configProps, new StringDeserializer(), new ByteArrayDeserializer());
     }
 
     @Bean
-    ConcurrentKafkaListenerContainerFactory<String, AccountInfoUpdateEventDto> kafkaListenerContainerFactoryAccountInfoUpdateEventListener() {
-        ConcurrentKafkaListenerContainerFactory<String, AccountInfoUpdateEventDto> factory = new ConcurrentKafkaListenerContainerFactory<>();
+    ConcurrentKafkaListenerContainerFactory<String, byte[]> kafkaListenerContainerFactoryAccountInfoUpdateEventListener() {
+        ConcurrentKafkaListenerContainerFactory<String, byte[]> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactoryAccountInfoUpdateEventListener());
         factory.setConcurrency(Integer.valueOf(Objects.requireNonNull(environment.getProperty(DEFAULT_CONCURRENCY))));
         factory.getContainerProperties().setPollTimeout(KafkaConstants.POLL_TIMEOUT);

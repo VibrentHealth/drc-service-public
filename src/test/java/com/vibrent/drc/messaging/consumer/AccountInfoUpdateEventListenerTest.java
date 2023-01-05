@@ -1,10 +1,11 @@
 package com.vibrent.drc.messaging.consumer;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.vibrent.drc.dto.ExternalApiRequestLog;
-import com.vibrent.drc.exception.DrcException;
 import com.vibrent.drc.service.AccountInfoUpdateEventService;
 import com.vibrent.drc.service.DRCParticipantService;
 import com.vibrent.drc.service.ExternalApiRequestLogsService;
+import com.vibrent.drc.util.JacksonUtil;
 import com.vibrent.vxp.push.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -49,10 +50,38 @@ class AccountInfoUpdateEventListenerTest {
     @Test
     @DisplayName("When accountInfoUpdateEventDto is received then the event is processed and external event is sent")
     void listen() throws Exception {
-        accountInfoUpdateEventListener.listen(accountInfoUpdateEventDto, buildMessageHeaders());
+        var accountInfoUpdateEventPayload = buildPayload(accountInfoUpdateEventDto);
+        accountInfoUpdateEventListener.listen(accountInfoUpdateEventPayload, buildMessageHeaders());
         verify(externalApiRequestLogsService, times(1)).send(any(ExternalApiRequestLog.class));
         verify(accountInfoUpdateEventService, times(1)).processAccountInfoUpdates(accountInfoUpdateEventDto);
         verify(participantService, times(1)).patchTestParticipant(accountInfoUpdateEventDto);
+    }
+
+    @Test
+    @DisplayName("When invalid payload received then exception should get logged")
+    void testListenOnException() throws Exception {
+        var accountInfoUpdateEventPayload = buildInvalidPayload(getUserAccountAddress());
+        accountInfoUpdateEventListener.listen(accountInfoUpdateEventPayload, buildMessageHeaders());
+        verify(externalApiRequestLogsService, times(0)).send(any(ExternalApiRequestLog.class));
+        verify(accountInfoUpdateEventService, times(0)).processAccountInfoUpdates(accountInfoUpdateEventDto);
+        verify(participantService, times(0)).patchTestParticipant(accountInfoUpdateEventDto);
+
+        accountInfoUpdateEventListener.listen(null, buildMessageHeaders());
+        verify(externalApiRequestLogsService, times(0)).send(any(ExternalApiRequestLog.class));
+        verify(accountInfoUpdateEventService, times(0)).processAccountInfoUpdates(accountInfoUpdateEventDto);
+        verify(participantService, times(0)).patchTestParticipant(accountInfoUpdateEventDto);
+    }
+
+    private AddressElementDto getUserAccountAddress() {
+
+        AddressElementDto addressDto = new AddressElementDto();
+        addressDto.setCity("Hagatña");
+        addressDto.setLine1("506Hudson");
+        addressDto.setPostalCode("85206");
+        addressDto.setState("AZ");
+        addressDto.setAddressType(AddressTypeEnum.ACCOUNT_ADDRESS);
+
+        return addressDto;
     }
 
     private void initializeAccountInfoUpdateEvent() {
@@ -85,5 +114,12 @@ class AccountInfoUpdateEventListenerTest {
 
         messageHeaders = new MessageHeaders(headers);
         return messageHeaders;
+    }
+
+    private byte[] buildPayload(AccountInfoUpdateEventDto accountInfoUpdateEventDto) throws JsonProcessingException {
+        return JacksonUtil.getMapper().writeValueAsBytes(accountInfoUpdateEventDto);
+    }
+    private byte[] buildInvalidPayload(AddressElementDto accountInfoUpdateEventDto) throws JsonProcessingException {
+        return JacksonUtil.getMapper().writeValueAsBytes(accountInfoUpdateEventDto);
     }
 }
